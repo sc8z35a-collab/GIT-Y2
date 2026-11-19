@@ -330,7 +330,7 @@ export const PLANNED_SITES: PlannedSite[] = [
   { id: 'H10', name: '民家 10（白井医院・擬洋風三階館）', category: 'house', x:  208, z:  424, y: 260.0, radiusX: 7.2, radiusZ: 6.0, yaw: -1.12, blendMargin: 12.0, note: '明治擬洋風三階木造診療所・いぶし銀本瓦入母屋' },
   { id: 'H11', name: '民家 11（黒田本家・庄屋四階望楼邸）', category: 'house', x: 162, z: 348, y: 254.0, radiusX: 8.8, radiusZ: 7.2, yaw: -1.18, blendMargin: 13.5, note: '1872年築・四重本瓦入母屋＆四階望楼の庄屋本宅' },
   { id: 'H12', name: '民家 12（松岡家・白壁瓦二階家）',   category: 'house', x:   72, z:  262, y: 248.0, radiusX: 6.8, radiusZ: 5.8, yaw:  1.85, blendMargin: 12.5, note: '参考写真中央・白漆喰＆濃灰いぶし瓦二階家' },
-  { id: 'H13', name: '民家予定地 13（神谷家）',           category: 'house', x:   82, z:  175, y: 249.0, radiusX: 6.4, radiusZ: 5.6, yaw: -1.65, blendMargin: 12.0, note: '鎮守宮守の家予定地' },
+  { id: 'H13', name: '民家 13（神谷家・朱塗冠木門三階社家）', category: 'house', x:   82, z:  175, y: 249.0, radiusX: 7.6, radiusZ: 6.8, yaw: -1.22, blendMargin: 12.5, note: '1879年築・独立朱塗冠木門・苔石坪庭吹抜・千鳥破風本瓦三階邸' },
   { id: 'H14', name: '民家予定地 14（村田家）',           category: 'house', x:   56, z:   88, y: 249.0, radiusX: 6.6, radiusZ: 5.6, yaw: -1.55, blendMargin: 12.0, note: '煉瓦煙突の家予定地' },
   { id: 'H15', name: '民家予定地 15（吉田家）',           category: 'house', x:   34, z:  -10, y: 252.0, radiusX: 7.2, radiusZ: 6.4, yaw: -1.35, blendMargin: 12.5, note: '増築つぎはぎ二棟家予定地' },
   { id: 'H16', name: '民家予定地 16（田辺家）',           category: 'house', x:   -4, z:  -92, y: 255.0, radiusX: 6.8, radiusZ: 5.6, yaw: -1.10, blendMargin: 12.5, note: '半地下石倉農家予定地' },
@@ -339,17 +339,17 @@ export const PLANNED_SITES: PlannedSite[] = [
 
   // --- Upper Hillside Road Houses (H19–H25: Y = 272m..290m) ---
   { id: 'H19', name: '民家予定地 19（小川家・懸造り）',   category: 'house', x:  282, z:  468, y: 273.0, radiusX: 6.0, radiusZ: 5.8, yaw: -1.75, blendMargin: 12.5, note: '急斜面・懸造り家屋予定地' },
-  { id: 'H20', name: '民家予定地 20（明治技師館）',       category: 'house', x:  280, z:  340, y: 275.0, radiusX: 7.4, radiusZ: 6.2, yaw: -1.65, blendMargin: 13.0, note: '高台展望・洋館社宅予定地' },
+  { id: 'H20', name: '民家 20（旧黒磯炭鉱・明治技師館）', category: 'house', x:  280, z:  340, y: 275.0, radiusX: 8.4, radiusZ: 6.8, yaw: -1.65, blendMargin: 13.5, note: '1891年築・青磁色下見板＆宝形本瓦四階角望楼塔屋の洋和折衷官邸' },
   { id: 'H21', name: '民家予定地 21（第一坑夫長屋）',     category: 'house', x:  262, z:  215, y: 277.0, radiusX: 10.0, radiusZ: 5.2, yaw: -1.60, blendMargin: 13.5, note: '三戸連棟炭住長屋予定地' },
   { id: 'H22', name: '民家 22（黒岩監督邸・懸造り四階館）', category: 'house', x: 246, z: 95, y: 279.0, radiusX: 7.4, radiusZ: 6.4, yaw: -1.48, blendMargin: 13.0, note: '高石垣＆懸造り木柱脚・重層瓦屋根の四階監督官邸' },
-  { id: 'H23', name: '民家予定地 23（鉄山鍛冶場）',       category: 'house', x:  232, z:  -45, y: 281.0, radiusX: 7.0, radiusZ: 5.4, yaw: -1.70, blendMargin: 12.5, note: '鍛冶屋仕事場兼住居予定地' },
+  { id: 'H23', name: '民家 23（鉄山鍛冶場・越屋根吹抜二階）', category: 'house', x: 232, z: -45, y: 281.0, radiusX: 8.6, radiusZ: 6.4, yaw: -1.70, blendMargin: 13.0, note: '1885年築・煙出し越屋根＆12m煉瓦大煙突・6.5m吹抜鍛冶場＆見下ろし回廊' },
   { id: 'H24', name: '民家予定地 24（炭鉱詰所）',         category: 'house', x:  222, z: -175, y: 285.0, radiusX: 7.0, radiusZ: 5.4, yaw: -1.80, blendMargin: 12.5, note: '詰所兼独身寮予定地' },
   { id: 'H25', name: '民家予定地 25（沢田小屋）',         category: 'house', x:  142, z: -362, y: 288.0, radiusX: 5.8, radiusZ: 5.2, yaw: -2.15, blendMargin: 12.0, note: '落石崩壊小屋・獣道入口近く' },
 ];
 
-/** The 10 individually hand-crafted 2F–4F wooden detached houses completed in Phase 2 */
+/** The 13 individually hand-crafted 2F–4F wooden detached houses completed through Phase 3 */
 export const BUILT_HOUSE_IDS = new Set<string>([
-  'H01', 'H02', 'H03', 'H04', 'H05', 'H09', 'H10', 'H11', 'H12', 'H22',
+  'H01', 'H02', 'H03', 'H04', 'H05', 'H09', 'H10', 'H11', 'H12', 'H13', 'H20', 'H22', 'H23',
 ]);
 
 const BUILT_HOUSE_SITES: PlannedSite[] = PLANNED_SITES.filter((s) => BUILT_HOUSE_IDS.has(s.id));

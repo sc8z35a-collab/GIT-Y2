@@ -8,11 +8,19 @@ import {
   sampleTerrain,
   getTerrainNormal,
   isInsideBuiltHouseFootprint,
+  fbm2D,
 } from './terrainMath';
+import {
+  getTreeArchetypes,
+  buildFarCanopyShapes,
+  type BakedGeoData,
+  type BakedTreeArchetype,
+} from './treeArchetypes';
 
-const FOREST_CELL = 256; // Macro & mid forest canopy streaming cell (256m x 256m)
-const DETAIL_CELL = 128; // High-detail near forest + mossy boulders (128m x 128m)
-const GRASS_CELL = 64;   // Ultra-dense swaying wild grass, weeds, ferns, pampas (64m x 64m)
+const NEAR_CELL = 64;   // High-density 32-species branching forest + boulders (64m x 64m -> 3 draw calls/cell!)
+const MID_CELL = 128;   // Mid-distance 32-species LOD1 forest (128m x 128m -> 3 draw calls/cell!)
+const FAR_CELL = 256;   // Macro mountain canopy across full 2km x 5km island (256m x 256m -> 2 draw calls/cell!)
+const GRASS_CELL = 64;  // Ultra-dense swaying wild grass, weeds, ferns, pampas (64m x 64m)
 
 function cellHash(cx: number, cz: number, salt: number): () => number {
   let a = (Math.imul(cx, 374761393) ^ Math.imul(cz, 668265263) ^ Math.imul(salt, 1442695041)) >>> 0;
@@ -26,7 +34,7 @@ function cellHash(cx: number, cz: number, salt: number): () => number {
 
 /**
  * Builds an organic crossed-blade 3-plane star tuft geometry with slightly curved tips
- * and vertex attribute `aHeight` (0 at roots -> 1 at tips) for smooth GPU wind swaying.
+ * and vertex attribute UV.y (0 at roots -> 1 at tips) for smooth GPU wind swaying.
  */
 function createCrossedTuftGeometry(width: number, height: number): THREE.BufferGeometry {
   const positions: number[] = [];
@@ -39,7 +47,6 @@ function createCrossedTuftGeometry(width: number, height: number): THREE.BufferG
     const ang = (p / planes) * Math.PI;
     const dx = Math.cos(ang) * width * 0.5;
     const dz = Math.sin(ang) * width * 0.5;
-    // Slight organic outward droop at top of blade cluster
     const bendX = -Math.sin(ang) * width * 0.14;
     const bendZ = Math.cos(ang) * width * 0.14;
     const base = p * 4;
@@ -50,7 +57,6 @@ function createCrossedTuftGeometry(width: number, height: number): THREE.BufferG
       -dx * 0.72 + bendX, height, -dz * 0.72 + bendZ,
       dx * 0.72 + bendX, height, dz * 0.72 + bendZ
     );
-    // Point normals predominantly upward so grass catches warm sky/sun light smoothly like real blades!
     for (let k = 0; k < 4; k++) {
       normals.push(0, 1, 0);
     }
@@ -68,8 +74,6 @@ function createCrossedTuftGeometry(width: number, height: number): THREE.BufferG
 
 /**
  * Creates a GPU wind-swaying alpha-cutout vegetation material from any extracted ground/foliage tile.
- * Uses procedural jagged grass-blade / fern-frond silhouette masking in fragment shader so
- * opaque JPEG/WebP textures render as natural organic blades, weeds, ferns, and pampas tufts!
  */
 function createWindGrassMaterial(
   catalog: TextureCatalog,
@@ -129,8 +133,7 @@ function createWindGrassMaterial(
       )
       .replace(
         '#include <alphatest_fragment>',
-        `// Sculpt organic spiky grass/weed/fern silhouette tips from UV without separate alpha PNG
-        float x = vGrassUv.x;
+        `float x = vGrassUv.x;
         float y = vGrassUv.y;
         float blades = sin(x * 3.14159 * uBladeDensity) * 0.5 + 0.5;
         float subBlades = sin(x * 3.14159 * (uBladeDensity * 1.73) + 1.2) * 0.5 + 0.5;
@@ -138,7 +141,6 @@ function createWindGrassMaterial(
         float tipLimit = (0.24 + 0.54 * blades + 0.26 * subBlades) * (0.48 + 0.52 * arch);
         float distFade = 1.0 - smoothstep(uMaxFade * 0.68, uMaxFade, vCamDist);
         float mask = smoothstep(y - 0.09, y + 0.04, tipLimit * distFade);
-        // Subtle root AO transitioning into warm sunlit translucent blade tips
         diffuseColor.rgb *= mix(0.62, 1.24, smoothstep(0.0, 0.78, y));
         diffuseColor.a = mask;
         #include <alphatest_fragment>`
@@ -146,7 +148,6 @@ function createWindGrassMaterial(
       .replace(
         '#include <normal_fragment_begin>',
         `#include <normal_fragment_begin>
-        // CRITICAL: Never flip grass normals downward on DoubleSide back faces (eliminates black grass!)
         normal = normalize(vNormal);`
       );
   };
@@ -155,123 +156,241 @@ function createWindGrassMaterial(
   return mat;
 }
 
-/**
- * Sculpts an organic drooping-bough Japanese Cedar (杉・檜) foliage tier with ruffled scalloped
- * branch tips and upward-biased lighting normals so trees read as lush organic evergreens, not sharp cones.
- * Uses openEnded=true to eliminate unseen bottom cap triangles for maximum GPU throughput!
- */
-function createOrganicCedarTier(
-  botR: number,
-  topR: number,
-  height: number,
-  baseY: number,
-  radialSegs: number,
-  heightSegs: number,
-  droop: number,
-  seed: number
-): THREE.BufferGeometry {
-  const geo = new THREE.CylinderGeometry(topR, botR, height, radialSegs, heightSegs, true);
-  geo.translate(0, baseY + height * 0.5, 0);
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-    const r = Math.hypot(x, z);
-    if (r < 0.05) continue;
-    const ang = Math.atan2(z, x);
-    const t = Math.max(0, Math.min(1, (y - baseY) / height));
-    // Scalloped projecting cedar boughs with drooping tips around lower rim
-    const boughWave = 1.0 + 0.22 * Math.sin(ang * (radialSegs * 0.5) + seed) + 0.11 * Math.cos(ang * 3.0 - seed);
-    const flare = 1.0 + (1.0 - t) * (1.0 - t) * 0.18;
-    const nr = r * boughWave * flare;
-    const ny = y - Math.max(0, (boughWave - 0.95)) * droop * (1.0 - t * 0.75);
-    pos.setXYZ(i, Math.cos(ang) * nr, ny, Math.sin(ang) * nr);
-  }
-  geo.computeVertexNormals();
-  // Softly lift foliage normals upward for realistic canopy sunlight scatter
-  const norm = geo.attributes.normal as THREE.BufferAttribute;
-  for (let i = 0; i < norm.count; i++) {
-    const nx = norm.getX(i);
-    const ny = norm.getY(i) + 0.48;
-    const nz = norm.getZ(i);
-    const l = Math.hypot(nx, ny, nz) || 1;
-    norm.setXYZ(i, nx / l, ny / l, nz / l);
-  }
-  return geo;
+interface StampJob {
+  geo: BakedGeoData;
+  wx: number;
+  wy: number;
+  wz: number;
+  rotY: number;
+  tiltX: number;
+  tiltZ: number;
+  scXZ: number;
+  scY: number;
+  rMul: number;
+  gMul: number;
+  bMul: number;
 }
 
 /**
- * Sculpts an organic multi-lobe deciduous Japanese mountain broadleaf crown (クヌギ・ブナ・広葉樹).
+ * Stamps dozens of mixed 32-archetype trees into ONE single static BufferGeometry per material
+ * using flat typed arrays (with 32-bit Uint32Array indices so dense cells never wrap 16-bit limits).
+ * Result: 32 distinct organic branching species rendered in ONLY 3 draw calls per 64m cell!
  */
-function createOrganicBroadleafGeo(radius: number, centerY: number, detail: number): THREE.BufferGeometry {
-  const geo = new THREE.IcosahedronGeometry(radius, detail);
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-    const ang = Math.atan2(z, x);
-    const lobe =
-      1.0 +
-      0.19 * Math.sin(ang * 3.0 + y * 0.7) +
-      0.13 * Math.cos(ang * 5.0 - y * 0.9) +
-      0.10 * Math.sin((x + z) * 0.8);
-    // Flatten underside gently, billow upper crown lobes
-    const yScale = y < 0 ? 0.68 : 0.96;
-    pos.setXYZ(i, x * lobe * 1.18, y * lobe * yScale + centerY, z * lobe * 1.12);
+function buildMergedCellGeometry(jobs: StampJob[], aoBoost = 1.07): THREE.BufferGeometry | null {
+  if (jobs.length === 0) return null;
+
+  let totalVerts = 0;
+  let totalIndices = 0;
+  for (let i = 0; i < jobs.length; i++) {
+    const g = jobs[i].geo;
+    totalVerts += g.vertexCount;
+    totalIndices += g.indices.length;
   }
-  geo.computeVertexNormals();
-  const norm = geo.attributes.normal as THREE.BufferAttribute;
-  for (let i = 0; i < norm.count; i++) {
-    const nx = norm.getX(i);
-    const ny = norm.getY(i) + 0.55;
-    const nz = norm.getZ(i);
-    const l = Math.hypot(nx, ny, nz) || 1;
-    norm.setXYZ(i, nx / l, ny / l, nz / l);
+  if (totalVerts === 0 || totalIndices === 0) return null;
+
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  const uvs = new Float32Array(totalVerts * 2);
+  const colors = new Float32Array(totalVerts * 3);
+  const indices = new Uint32Array(totalIndices);
+
+  let vCursor = 0;
+  let iCursor = 0;
+
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+  for (let j = 0; j < jobs.length; j++) {
+    const job = jobs[j];
+    const src = job.geo;
+    const sPos = src.positions;
+    const sNorm = src.normals;
+    const sUv = src.uvs;
+    const sAo = src.ao;
+    const sIdx = src.indices;
+    const vc = src.vertexCount;
+
+    // Combined Y-rotation + small organic slope tilt (Rz * Rx * Ry approximation accurate for small tilts)
+    const cy = Math.cos(job.rotY);
+    const sy = Math.sin(job.rotY);
+    const cx = Math.cos(job.tiltX);
+    const sx = Math.sin(job.tiltX);
+    const cz = Math.cos(job.tiltZ);
+    const sz = Math.sin(job.tiltZ);
+
+    // Rotation matrix M = Rz(tiltZ) * Rx(tiltX) * Ry(rotY)
+    const m00 = cz * cy - sz * sx * sy;
+    const m01 = -sz * cx;
+    const m02 = cz * sy + sz * sx * cy;
+    const m10 = sz * cy + cz * sx * sy;
+    const m11 = cz * cx;
+    const m12 = sz * sy - cz * sx * cy;
+    const m20 = -cx * sy;
+    const m21 = sx;
+    const m22 = cx * cy;
+
+    const scXZ = job.scXZ;
+    const scY = job.scY;
+    const wx = job.wx;
+    const wy = job.wy;
+    const wz = job.wz;
+    const rMul = job.rMul;
+    const gMul = job.gMul;
+    const bMul = job.bMul;
+
+    const baseVertex = vCursor;
+
+    for (let k = 0; k < vc; k++) {
+      const k3 = k * 3;
+      const k2 = k * 2;
+      const lx = sPos[k3] * scXZ;
+      const ly = sPos[k3 + 1] * scY;
+      const lz = sPos[k3 + 2] * scXZ;
+
+      const px = m00 * lx + m01 * ly + m02 * lz + wx;
+      const py = m10 * lx + m11 * ly + m12 * lz + wy;
+      const pz = m20 * lx + m21 * ly + m22 * lz + wz;
+
+      const o3 = (baseVertex + k) * 3;
+      const o2 = (baseVertex + k) * 2;
+      positions[o3] = px;
+      positions[o3 + 1] = py;
+      positions[o3 + 2] = pz;
+
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+      if (pz < minZ) minZ = pz;
+      if (pz > maxZ) maxZ = pz;
+
+      const nx = sNorm[k3];
+      const ny = sNorm[k3 + 1];
+      const nz = sNorm[k3 + 2];
+      normals[o3] = m00 * nx + m01 * ny + m02 * nz;
+      normals[o3 + 1] = m10 * nx + m11 * ny + m12 * nz;
+      normals[o3 + 2] = m20 * nx + m21 * ny + m22 * nz;
+
+      uvs[o2] = sUv[k2];
+      uvs[o2 + 1] = sUv[k2 + 1];
+
+      const ao = sAo[k] * aoBoost;
+      colors[o3] = rMul * ao;
+      colors[o3 + 1] = gMul * ao;
+      colors[o3 + 2] = bMul * ao;
+    }
+
+    for (let i = 0; i < sIdx.length; i++) {
+      indices[iCursor++] = baseVertex + sIdx[i];
+    }
+    vCursor += vc;
   }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+
+  // Precompute exact tight bounds so Three.js performs 100% hardware per-cell frustum culling!
+  geo.boundingBox = new THREE.Box3(
+    new THREE.Vector3(minX, minY, minZ),
+    new THREE.Vector3(maxX, maxY, maxZ)
+  );
+  const center = new THREE.Vector3(
+    (minX + maxX) * 0.5,
+    (minY + maxY) * 0.5,
+    (minZ + maxZ) * 0.5
+  );
+  const radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) * 0.5;
+  geo.boundingSphere = new THREE.Sphere(center, radius);
+
   return geo;
+}
+
+// Biome-curated index pools across all 32 tree archetypes (every archetype 0..31 appears in-world!)
+const POOL_COASTAL_CANOPY = [8, 9, 11, 13, 1, 6, 16, 19, 20, 29];
+const POOL_VALLEY_BROAD = [15, 16, 17, 18, 19, 20, 21, 24, 29, 31];
+const POOL_MOUNTAIN_CEDAR = [0, 1, 2, 3, 4, 5, 6, 7, 10, 12, 27, 28, 30];
+const POOL_MIXED_CANOPY = [
+  0, 1, 2, 3, 4, 5, 6, 7,
+  9, 10, 11, 12, 13,
+  15, 16, 17, 18, 19, 20, 21,
+  27, 28, 29, 30, 31,
+];
+const POOL_UNDERSTORY = [0, 8, 14, 15, 22, 23, 24, 25, 26];
+const POOL_RIDGE_ALPINE = [6, 8, 9, 10, 12, 13, 22, 23, 26, 27];
+
+function pickArchetypeIndex(elev: number, streamWeight: number, rand: () => number): number {
+  const r = rand();
+  // ~28% understory saplings & multi-stem shrub-trees (3.4m..8.2m) filling beneath tall canopy trees!
+  if (r < 0.28) {
+    return POOL_UNDERSTORY[Math.floor(rand() * POOL_UNDERSTORY.length)];
+  }
+  if (elev < 110) {
+    return POOL_COASTAL_CANOPY[Math.floor(rand() * POOL_COASTAL_CANOPY.length)];
+  }
+  if (elev >= 585) {
+    return POOL_RIDGE_ALPINE[Math.floor(rand() * POOL_RIDGE_ALPINE.length)];
+  }
+  if (elev >= 435) {
+    // Upper mountain sugi/hinoki/pine belt with occasional sturdy mountain oaks
+    if (rand() < 0.84) {
+      return POOL_MOUNTAIN_CEDAR[Math.floor(rand() * POOL_MOUNTAIN_CEDAR.length)];
+    }
+    return POOL_VALLEY_BROAD[Math.floor(rand() * POOL_VALLEY_BROAD.length)];
+  }
+  // 110m..435m Kuroiso village & gorge hillsides: rich real-world Japanese mixed forest!
+  if (streamWeight > 0.15 || rand() < 0.36) {
+    return POOL_VALLEY_BROAD[Math.floor(rand() * POOL_VALLEY_BROAD.length)];
+  }
+  return POOL_MIXED_CANOPY[Math.floor(rand() * POOL_MIXED_CANOPY.length)];
+}
+
+interface CellEntry {
+  group: THREE.Group;
+  count: number;
+  cx: number;
+  cz: number;
+  shadowMeshes?: THREE.Mesh[];
 }
 
 export interface FoliageStreamStats {
   farForestCells: number;
+  midForestCells: number;
   nearForestCells: number;
   grassCells: number;
   visibleTrees: number;
   visibleGrassTufts: number;
+  archetypeCount: number;
 }
 
 /**
- * AAA 3-Tier Dynamic Streaming Vegetation Engine for the 2km x 5km Kuroiso-jima Island:
- * - Tier 1 (Far Forest Canopy, 256m cells up to 3,100m): blankets all mountains up to 760m treeline
- *   in dense layered Japanese Cedar/Cypress & Broadleaf silhouettes (ultra-light 12–20 tris/tree)!
- * - Tier 2 (Near Detailed Forest, 128m cells up to 460m): textured cedar trunks + 3-tier drooping boughs +
- *   multi-lobe broadleaf crowns + mossy forest boulders!
- * - Tier 3 (Ultra-Lush Wind-Swaying Grass, Weeds, Ferns & Pampas Grass, 64m micro-cells up to 162m):
- *   thousands of GPU-animated wild grass tufts, weeds, golden susuki pampas, and woodland ferns!
+ * AAA 4-Tier Dynamic Streaming Forest & Vegetation Engine for the 2km x 5km Kuroiso-jima Island:
+ * - 32 hand-crafted organic branching tree archetypes (4 to 15 real 3D branches, 3.4m to 25.5m)
+ * - Real-world Japanese mountain forest density (~4.5x denser multi-story canopy + understory)
+ * - Per-cell typed-array static geometry batching: ALL 32 species in only 3 draw calls per cell!
+ * - Strictly preserves the original natural green leaf colors (foliage_green / shrub_foliage).
+ * - Distance-gated real-time shadows (<= 125m) for locked mobile 120 FPS performance.
  */
 export class FoliageStreamer {
   public readonly group = new THREE.Group();
   private readonly windUniform = { value: 0 };
 
-  // Shared GPU geometries & materials
-  private readonly farCedarGeo: THREE.BufferGeometry;
-  private readonly farBroadGeo: THREE.BufferGeometry;
+  // Pre-baked 32 branching tree archetypes (LOD0 + LOD1) & 6 varied LOD2 far canopies
+  private readonly archetypes: readonly BakedTreeArchetype[];
+  private readonly farCedarShapes: BakedGeoData[];
+  private readonly farBroadShapes: BakedGeoData[];
+
+  // Cloned vertex-colored materials preserving EXACT original leaf & bark textures and tints!
+  private readonly barkMat: THREE.MeshStandardMaterial;
+  private readonly cedarLeafMat: THREE.MeshStandardMaterial;
+  private readonly broadLeafMat: THREE.MeshStandardMaterial;
   private readonly farCedarMat: THREE.MeshStandardMaterial;
   private readonly farBroadMat: THREE.MeshStandardMaterial;
 
-  private readonly nearTrunkGeo: THREE.BufferGeometry;
-  private readonly nearBough1Geo: THREE.BufferGeometry;
-  private readonly nearBough2Geo: THREE.BufferGeometry;
-  private readonly nearBough3Geo: THREE.BufferGeometry;
-  private readonly nearBroadTrunkGeo: THREE.BufferGeometry;
-  private readonly nearBroadCrownGeo: THREE.BufferGeometry;
   private readonly boulderGeo: THREE.BufferGeometry;
-
-  private readonly barkMat: THREE.MeshStandardMaterial;
-  private readonly cedarBoughMat: THREE.MeshStandardMaterial;
-  private readonly cedarTipMat: THREE.MeshStandardMaterial;
-  private readonly broadCrownMat: THREE.MeshStandardMaterial;
   private readonly boulderMat: THREE.MeshStandardMaterial;
 
   // Ground-cover wild grass, weeds, pampas, ferns
@@ -285,9 +404,10 @@ export class FoliageStreamer {
   private readonly fernMat: THREE.MeshStandardMaterial;
   private readonly flowerWeedMat: THREE.MeshStandardMaterial;
 
-  private readonly farCells = new Map<string, { group: THREE.Group; count: number }>();
-  private readonly nearCells = new Map<string, { group: THREE.Group; count: number }>();
-  private readonly grassCells = new Map<string, { group: THREE.Group; count: number }>();
+  private readonly nearCells = new Map<string, CellEntry>();
+  private readonly midCells = new Map<string, CellEntry>();
+  private readonly farCells = new Map<string, CellEntry>();
+  private readonly grassCells = new Map<string, CellEntry>();
 
   private readonly dummy = new THREE.Object3D();
   private readonly tmpColor = new THREE.Color();
@@ -295,36 +415,43 @@ export class FoliageStreamer {
   constructor(catalog: TextureCatalog) {
     this.group.name = 'KuroisoStreamingFoliage';
 
-    // --- Far forest ultra-light overlapping organic silhouettes (ONLY 12–20 tris per tree!) ---
-    this.farCedarGeo = createOrganicCedarTier(7.4, 0.4, 22.5, 0.5, 6, 1, 2.0, 0.7);
-    this.farBroadGeo = createOrganicBroadleafGeo(6.4, 3.4, 0);
+    // Load cached 32 branching tree archetypes + 6 varied far canopy silhouettes
+    this.archetypes = getTreeArchetypes();
+    const farShapes = buildFarCanopyShapes();
+    this.farCedarShapes = farShapes.cedar;
+    this.farBroadShapes = farShapes.broad;
 
-    // Bright natural tints because foliage_green / shrub_foliage already hold deep photographic leaf tones
-    this.farCedarMat = catalog.getMaterial('foliage_green', {
-      repeatX: 2, repeatY: 2, roughness: 0.9, tint: 0x90b384, bumpScale: 0.0,
-    });
-    this.farBroadMat = catalog.getMaterial('shrub_foliage', {
-      repeatX: 2, repeatY: 2, roughness: 0.88, tint: 0xc8da96, bumpScale: 0.0,
-    });
+    // Clone materials before enabling vertexColors so shared house materials are NEVER mutated!
+    // Exact original tints & textures preserved (leaf color lock!)
+    this.barkMat = catalog
+      .getMaterial('tree_bark', { repeatX: 1, repeatY: 3, roughness: 0.94, tint: 0xd8cec2, bumpScale: 0.06 })
+      .clone();
+    this.barkMat.vertexColors = true;
 
-    // --- Near detailed organic tree geometries (trimmed caps & balanced segments for 120 FPS mobile!) ---
-    this.nearTrunkGeo = new THREE.CylinderGeometry(0.16, 0.44, 11.8, 6, 1, true);
-    this.nearTrunkGeo.translate(0, 5.9, 0);
-    this.nearBough1Geo = createOrganicCedarTier(4.3, 1.2, 7.8, 4.4, 8, 2, 1.35, 0.4);
-    this.nearBough2Geo = createOrganicCedarTier(3.3, 0.85, 6.8, 9.2, 8, 2, 1.15, 2.1);
-    this.nearBough3Geo = createOrganicCedarTier(2.1, 0.14, 6.2, 13.4, 6, 1, 0.85, 3.8);
+    this.cedarLeafMat = catalog
+      .getMaterial('foliage_green', { repeatX: 2, repeatY: 2, roughness: 0.86, tint: 0x9bbd8e, bumpScale: 0.04 })
+      .clone();
+    this.cedarLeafMat.vertexColors = true;
 
-    this.nearBroadTrunkGeo = new THREE.CylinderGeometry(0.22, 0.42, 4.8, 6, 1, true);
-    this.nearBroadTrunkGeo.translate(0, 2.4, 0);
-    this.nearBroadCrownGeo = createOrganicBroadleafGeo(3.9, 6.4, 1);
+    this.broadLeafMat = catalog
+      .getMaterial('shrub_foliage', { repeatX: 2, repeatY: 2, roughness: 0.86, tint: 0xd5e3a4, bumpScale: 0.05 })
+      .clone();
+    this.broadLeafMat.vertexColors = true;
+
+    this.farCedarMat = catalog
+      .getMaterial('foliage_green', { repeatX: 2, repeatY: 2, roughness: 0.9, tint: 0x90b384, bumpScale: 0.0 })
+      .clone();
+    this.farCedarMat.vertexColors = true;
+
+    this.farBroadMat = catalog
+      .getMaterial('shrub_foliage', { repeatX: 2, repeatY: 2, roughness: 0.88, tint: 0xc8da96, bumpScale: 0.0 })
+      .clone();
+    this.farBroadMat.vertexColors = true;
 
     this.boulderGeo = new THREE.DodecahedronGeometry(1.0, 1);
-
-    this.barkMat = catalog.getMaterial('tree_bark', { repeatX: 1, repeatY: 3, roughness: 0.94, tint: 0xd8cec2, bumpScale: 0.06 });
-    this.cedarBoughMat = catalog.getMaterial('foliage_green', { repeatX: 2, repeatY: 2, roughness: 0.86, tint: 0x9bbd8e, bumpScale: 0.04 });
-    this.cedarTipMat = catalog.getMaterial('foliage_green', { repeatX: 2, repeatY: 2, roughness: 0.84, tint: 0xb7d4a2, bumpScale: 0.04 });
-    this.broadCrownMat = catalog.getMaterial('shrub_foliage', { repeatX: 2, repeatY: 2, roughness: 0.86, tint: 0xd5e3a4, bumpScale: 0.05 });
-    this.boulderMat = catalog.getMaterial('moss_rock_heavy', { repeatX: 2, repeatY: 2, roughness: 0.92, tint: 0xd8dfd0, bumpScale: 0.08 });
+    this.boulderMat = catalog.getMaterial('moss_rock_heavy', {
+      repeatX: 2, repeatY: 2, roughness: 0.92, tint: 0xd8dfd0, bumpScale: 0.08,
+    });
 
     // --- Dense wind-swaying wild grass, weeds, golden pampas (ススキ), forest ferns (シダ) ---
     this.weedGeo = createCrossedTuftGeometry(1.22, 0.82);
@@ -339,171 +466,134 @@ export class FoliageStreamer {
   }
 
   private canPlaceTree(x: number, z: number, elev: number, ny: number, s: ReturnType<typeof sampleTerrain>): boolean {
-    // Treeline: ocean shore 9m up to sub-alpine 760m (leaving 760m–865m summit crag open for panoramic views!)
+    // Treeline: ocean shore 9.5m up to sub-alpine 760m (leaving 760m–865m summit crag open!)
     if (elev < 9.5 || elev > 760.0) return false;
     if (ny < 0.42) return false;
-    // Keep roads, animal trails, graded house/shop/koban/park/mine/port terraces strictly clear of tree trunks!
-    if (s.roadWeight > 0.06 || s.trailWeight > 0.08 || s.terraceWeight > 0.08) return false;
+    // Keep roads, animal trails, graded terraces & built house roofs strictly clear of trunks/branches!
+    if (s.roadWeight > 0.05 || s.trailWeight > 0.06 || s.terraceWeight > 0.05) return false;
+    if (isInsideBuiltHouseFootprint(x, z, 2.8)) return false;
     // Keep Summit crown & Lookout Bend foreground sightline open
     if (Math.hypot(x - SUMMIT_POINT.x, z - SUMMIT_POINT.z) < 95) return false;
     if (Math.hypot(x - LOOKOUT_POINT.x, z - LOOKOUT_POINT.z) < 32) return false;
     return true;
   }
 
-  private buildFarForestCell(cx: number, cz: number): { group: THREE.Group; count: number } {
+  /**
+   * Tier 1: High-Density Near Detailed Forest (64m x 64m cells, LOD0 of all 32 branching archetypes!)
+   * Uses stratified 12x12 jittered placement (144 slots/cell -> ~75-105 multi-story trees/cell)
+   * merged into ONLY 3 draw calls (bark + cedar leaves + broadleaf leaves) + mossy boulders!
+   */
+  private buildNearForestCell(cx: number, cz: number): CellEntry {
     const grp = new THREE.Group();
-    const x0 = cx * FOREST_CELL;
-    const z0 = cz * FOREST_CELL;
-    const rand = cellHash(cx, cz, 101);
+    const x0 = cx * NEAR_CELL;
+    const z0 = cz * NEAR_CELL;
+    const rand = cellHash(cx, cz, 211);
 
-    const cedars: Array<[number, number, number, number, number]> = [];
-    const broads: Array<[number, number, number, number, number]> = [];
-
-    // Wide overlapping canopy groves (155 candidates/cell x 12-20 tris = lush mountains at 15x less GPU cost!)
-    for (let i = 0; i < 155; i++) {
-      const wx = x0 + rand() * FOREST_CELL;
-      const wz = z0 + rand() * FOREST_CELL;
-      if (Math.abs(wx) > TERRAIN_EXTENT_X - 24 || Math.abs(wz) > TERRAIN_EXTENT_Z - 24) continue;
-      const s = sampleTerrain(wx, wz);
-      const [, ny] = getTerrainNormal(wx, wz, 4.0);
-      if (!this.canPlaceTree(wx, wz, s.height, ny, s)) continue;
-
-      // Alpine dwarfing above 600m
-      const altScale = s.height > 600 ? Math.max(0.48, 1.0 - (s.height - 600) / 260) : 1.0;
-      const sc = (0.95 + rand() * 0.92) * altScale;
-      const shade = 0.78 + rand() * 0.34;
-
-      // Rich mix of Japanese cedar ridges & sunlit broadleaf groves
-      if (s.height < 460 && rand() < 0.35) {
-        broads.push([wx, s.height - 1.4, wz, sc, shade]);
-      } else {
-        cedars.push([wx, s.height - 1.6, wz, sc, shade]);
-      }
-    }
-
-    if (cedars.length > 0) {
-      const im = new THREE.InstancedMesh(this.farCedarGeo, this.farCedarMat, cedars.length);
-      for (let i = 0; i < cedars.length; i++) {
-        const [x, y, z, sc, sh] = cedars[i];
-        this.dummy.position.set(x, y, z);
-        this.dummy.rotation.set(0, rand() * Math.PI * 2, 0);
-        this.dummy.scale.set(sc, sc * (0.9 + (i % 4) * 0.08), sc);
-        this.dummy.updateMatrix();
-        im.setMatrixAt(i, this.dummy.matrix);
-        this.tmpColor.setRGB(sh * 0.90, sh * 1.02, sh * 0.88);
-        im.setColorAt(i, this.tmpColor);
-      }
-      im.frustumCulled = true;
-      grp.add(im);
-    }
-
-    if (broads.length > 0) {
-      const im = new THREE.InstancedMesh(this.farBroadGeo, this.farBroadMat, broads.length);
-      for (let i = 0; i < broads.length; i++) {
-        const [x, y, z, sc, sh] = broads[i];
-        this.dummy.position.set(x, y, z);
-        this.dummy.rotation.set(0, rand() * Math.PI * 2, 0);
-        this.dummy.scale.set(sc, sc, sc);
-        this.dummy.updateMatrix();
-        im.setMatrixAt(i, this.dummy.matrix);
-        if (i % 5 === 0) this.tmpColor.setRGB(sh * 1.08, sh * 0.95, sh * 0.64);
-        else this.tmpColor.setRGB(sh * 0.84, sh * 0.98, sh * 0.72);
-        im.setColorAt(i, this.tmpColor);
-      }
-      im.frustumCulled = true;
-      grp.add(im);
-    }
-
-    return { group: grp, count: cedars.length + broads.length };
-  }
-
-  private buildNearForestCell(cx: number, cz: number): { group: THREE.Group; count: number } {
-    const grp = new THREE.Group();
-    const x0 = cx * DETAIL_CELL;
-    const z0 = cz * DETAIL_CELL;
-    const rand = cellHash(cx, cz, 202);
-
-    const cedars: Array<[number, number, number, number, number, number]> = [];
-    const broads: Array<[number, number, number, number, number, number]> = [];
+    const woodJobs: StampJob[] = [];
+    const cedarJobs: StampJob[] = [];
+    const broadJobs: StampJob[] = [];
     const rocks: Array<[number, number, number, number, number, number]> = [];
 
-    // Trees
-    for (let i = 0; i < 64; i++) {
-      const wx = x0 + rand() * DETAIL_CELL;
-      const wz = z0 + rand() * DETAIL_CELL;
-      if (Math.abs(wx) > TERRAIN_EXTENT_X - 16 || Math.abs(wz) > TERRAIN_EXTENT_Z - 16) continue;
-      const s = sampleTerrain(wx, wz);
-      const [, ny] = getTerrainNormal(wx, wz, 2.5);
-      if (!this.canPlaceTree(wx, wz, s.height, ny, s)) continue;
+    const gridN = 12; // 12 x 12 = 144 stratified candidates per 64m x 64m (~5.3m grid, ~5.5x real-world density!)
+    const step = NEAR_CELL / gridN;
+    let placedTrees = 0;
 
-      const altScale = s.height > 580 ? Math.max(0.45, 1.0 - (s.height - 580) / 260) : 1.0;
-      const sc = (0.72 + rand() * 0.88) * altScale;
-      const rot = rand() * Math.PI * 2;
-      const sh = 0.74 + rand() * 0.36;
+    for (let gz = 0; gz < gridN; gz++) {
+      for (let gx = 0; gx < gridN; gx++) {
+        // Natural organic forest clumping (dense groves & occasional tiny sun-dappled forest glades)
+        const wx = x0 + (gx + 0.12 + rand() * 0.76) * step;
+        const wz = z0 + (gz + 0.12 + rand() * 0.76) * step;
+        if (Math.abs(wx) > TERRAIN_EXTENT_X - 16 || Math.abs(wz) > TERRAIN_EXTENT_Z - 16) continue;
 
-      if (s.height < 430 && rand() < 0.27) {
-        broads.push([wx, s.height - 0.5, wz, sc, rot, sh]);
-      } else {
-        cedars.push([wx, s.height - 0.6, wz, sc, rot, sh]);
+        const groveMask = fbm2D(wx * 0.018, wz * 0.018, 2);
+        const keepProb = 0.72 + groveMask * 0.22; // ~60%..90% occupancy = real-world natural mountain forest!
+        if (rand() > keepProb) continue;
+
+        const s = sampleTerrain(wx, wz);
+        const [, ny] = getTerrainNormal(wx, wz, 2.2);
+        if (!this.canPlaceTree(wx, wz, s.height, ny, s)) continue;
+
+        const archIdx = pickArchetypeIndex(s.height, s.streamWeight, rand);
+        const arch = this.archetypes[archIdx];
+
+        const altScale = s.height > 580 ? Math.max(0.46, 1.0 - (s.height - 580) / 260) : 1.0;
+        const scBase = (0.82 + rand() * 0.38) * altScale;
+        const scXZ = scBase * (0.90 + rand() * 0.20);
+        const scY = scBase * (0.88 + rand() * 0.24);
+        const rotY = rand() * Math.PI * 2;
+        const tiltX = (rand() - 0.5) * 0.085;
+        const tiltZ = (rand() - 0.5) * 0.085;
+        const wy = s.height - 0.12;
+
+        // Subtle per-tree bark brightness variation
+        const barkSh = 0.84 + rand() * 0.26;
+        woodJobs.push({
+          geo: arch.woodLod0,
+          wx, wy, wz, rotY, tiltX, tiltZ, scXZ, scY,
+          rMul: barkSh, gMul: barkSh, bMul: barkSh,
+        });
+
+        // STRICTLY preserve original green leaf shade palette (zero hue change!)
+        const sh = 0.76 + rand() * 0.34;
+        if (arch.spec.leafGroup === 'cedar') {
+          cedarJobs.push({
+            geo: arch.leafLod0,
+            wx, wy, wz, rotY, tiltX, tiltZ, scXZ, scY,
+            rMul: sh * 0.88, gMul: sh * 1.00, bMul: sh * 0.86,
+          });
+        } else {
+          const isWarmOlive = placedTrees % 5 === 0;
+          broadJobs.push({
+            geo: arch.leafLod0,
+            wx, wy, wz, rotY, tiltX, tiltZ, scXZ, scY,
+            rMul: isWarmOlive ? sh * 1.08 : sh * 0.85,
+            gMul: isWarmOlive ? sh * 0.94 : sh * 0.99,
+            bMul: isWarmOlive ? sh * 0.60 : sh * 0.72,
+          });
+        }
+        placedTrees++;
       }
     }
 
-    // Mossy hillside & forest boulders
-    for (let i = 0; i < 24; i++) {
-      const wx = x0 + rand() * DETAIL_CELL;
-      const wz = z0 + rand() * DETAIL_CELL;
+    // Mossy hillside & forest floor boulders (6 per 64m cell == 24 per 128m cell)
+    for (let i = 0; i < 6; i++) {
+      const wx = x0 + rand() * NEAR_CELL;
+      const wz = z0 + rand() * NEAR_CELL;
       if (Math.abs(wx) > TERRAIN_EXTENT_X - 16 || Math.abs(wz) > TERRAIN_EXTENT_Z - 16) continue;
       const s = sampleTerrain(wx, wz);
       if (s.height < 0.6 || s.roadWeight > 0.25 || s.trailWeight > 0.35 || s.terraceWeight > 0.35) continue;
-      const sc = s.height > 720 || s.height < 12 ? 1.1 + rand() * 2.5 : 0.65 + rand() * 1.65;
+      if (isInsideBuiltHouseFootprint(wx, wz, 2.0)) continue;
+      const sc = s.height > 720 || s.height < 12 ? 1.1 + rand() * 2.4 : 0.65 + rand() * 1.55;
       rocks.push([wx, s.height - sc * 0.22, wz, sc, rand() * Math.PI, rand() * Math.PI]);
     }
 
-    if (cedars.length > 0) {
-      const trunks = new THREE.InstancedMesh(this.nearTrunkGeo, this.barkMat, cedars.length);
-      const b1 = new THREE.InstancedMesh(this.nearBough1Geo, this.cedarBoughMat, cedars.length);
-      const b2 = new THREE.InstancedMesh(this.nearBough2Geo, this.cedarBoughMat, cedars.length);
-      const b3 = new THREE.InstancedMesh(this.nearBough3Geo, this.cedarTipMat, cedars.length);
-      for (let i = 0; i < cedars.length; i++) {
-        const [x, y, z, sc, rot, sh] = cedars[i];
-        this.dummy.position.set(x, y, z);
-        this.dummy.rotation.set((rand() - 0.5) * 0.04, rot, (rand() - 0.5) * 0.04);
-        this.dummy.scale.set(sc, sc * (0.9 + (i % 5) * 0.06), sc);
-        this.dummy.updateMatrix();
-        trunks.setMatrixAt(i, this.dummy.matrix);
-        b1.setMatrixAt(i, this.dummy.matrix);
-        b2.setMatrixAt(i, this.dummy.matrix);
-        b3.setMatrixAt(i, this.dummy.matrix);
-        this.tmpColor.setRGB(sh * 0.88, sh, sh * 0.86);
-        b1.setColorAt(i, this.tmpColor);
-        b2.setColorAt(i, this.tmpColor);
-        b3.setColorAt(i, this.tmpColor);
-      }
-      b1.castShadow = true;
-      b2.castShadow = true;
-      b1.receiveShadow = true;
-      b2.receiveShadow = true;
-      grp.add(trunks, b1, b2, b3);
+    const shadowMeshes: THREE.Mesh[] = [];
+
+    const woodGeo = buildMergedCellGeometry(woodJobs, 1.05);
+    if (woodGeo) {
+      const m = new THREE.Mesh(woodGeo, this.barkMat);
+      m.castShadow = false; // Dynamically toggled <= 125m in update()
+      m.receiveShadow = true;
+      grp.add(m);
+      shadowMeshes.push(m);
     }
 
-    if (broads.length > 0) {
-      const trunks = new THREE.InstancedMesh(this.nearBroadTrunkGeo, this.barkMat, broads.length);
-      const crowns = new THREE.InstancedMesh(this.nearBroadCrownGeo, this.broadCrownMat, broads.length);
-      for (let i = 0; i < broads.length; i++) {
-        const [x, y, z, sc, rot, sh] = broads[i];
-        this.dummy.position.set(x, y, z);
-        this.dummy.rotation.set(0, rot, 0);
-        this.dummy.scale.set(sc, sc, sc);
-        this.dummy.updateMatrix();
-        trunks.setMatrixAt(i, this.dummy.matrix);
-        crowns.setMatrixAt(i, this.dummy.matrix);
-        if (i % 5 === 0) this.tmpColor.setRGB(sh * 1.12, sh * 0.94, sh * 0.58);
-        else this.tmpColor.setRGB(sh * 0.85, sh * 0.99, sh * 0.72);
-        crowns.setColorAt(i, this.tmpColor);
-      }
-      crowns.castShadow = true;
-      crowns.receiveShadow = true;
-      grp.add(trunks, crowns);
+    const cedarGeo = buildMergedCellGeometry(cedarJobs, 1.00);
+    if (cedarGeo) {
+      const m = new THREE.Mesh(cedarGeo, this.cedarLeafMat);
+      m.castShadow = false;
+      m.receiveShadow = true;
+      grp.add(m);
+      shadowMeshes.push(m);
+    }
+
+    const broadGeo = buildMergedCellGeometry(broadJobs, 1.00);
+    if (broadGeo) {
+      const m = new THREE.Mesh(broadGeo, this.broadLeafMat);
+      m.castShadow = false;
+      m.receiveShadow = true;
+      grp.add(m);
+      shadowMeshes.push(m);
     }
 
     if (rocks.length > 0) {
@@ -516,15 +606,181 @@ export class FoliageStreamer {
         this.dummy.updateMatrix();
         im.setMatrixAt(i, this.dummy.matrix);
       }
-      im.castShadow = true;
+      im.castShadow = false;
       im.receiveShadow = true;
       grp.add(im);
     }
 
-    return { group: grp, count: cedars.length + broads.length };
+    return { group: grp, count: placedTrees, cx, cz, shadowMeshes };
   }
 
-  private buildGrassCell(cx: number, cz: number): { group: THREE.Group; count: number } {
+  /**
+   * Tier 2: Mid-Distance Forest (128m x 128m cells, 185m..510m, LOD1 of all 32 branching archetypes!)
+   * Maintains thick continuous multi-species silhouette seamlessly beyond the near LOD0 zone
+   * in ONLY 3 draw calls per 128m cell (zero shadow-cast cost).
+   */
+  private buildMidForestCell(cx: number, cz: number): CellEntry {
+    const grp = new THREE.Group();
+    const x0 = cx * MID_CELL;
+    const z0 = cz * MID_CELL;
+    const rand = cellHash(cx, cz, 419);
+
+    const woodJobs: StampJob[] = [];
+    const cedarJobs: StampJob[] = [];
+    const broadJobs: StampJob[] = [];
+
+    const gridN = 15; // 225 stratified candidates per 128m x 128m -> ~145–175 varied trees/cell
+    const step = MID_CELL / gridN;
+    let placedTrees = 0;
+
+    for (let gz = 0; gz < gridN; gz++) {
+      for (let gx = 0; gx < gridN; gx++) {
+        const wx = x0 + (gx + 0.14 + rand() * 0.72) * step;
+        const wz = z0 + (gz + 0.14 + rand() * 0.72) * step;
+        if (Math.abs(wx) > TERRAIN_EXTENT_X - 18 || Math.abs(wz) > TERRAIN_EXTENT_Z - 18) continue;
+
+        const groveMask = fbm2D(wx * 0.018, wz * 0.018, 2);
+        if (rand() > 0.76 + groveMask * 0.18) continue;
+
+        const s = sampleTerrain(wx, wz);
+        const [, ny] = getTerrainNormal(wx, wz, 3.0);
+        if (!this.canPlaceTree(wx, wz, s.height, ny, s)) continue;
+
+        const archIdx = pickArchetypeIndex(s.height, s.streamWeight, rand);
+        const arch = this.archetypes[archIdx];
+
+        const altScale = s.height > 580 ? Math.max(0.46, 1.0 - (s.height - 580) / 260) : 1.0;
+        // Slightly fuller scale (+14%) compensates for sparser grid spacing to keep dense seamless horizon!
+        const scBase = (0.94 + rand() * 0.42) * altScale;
+        const scXZ = scBase * (0.94 + rand() * 0.18);
+        const scY = scBase * (0.90 + rand() * 0.22);
+        const rotY = rand() * Math.PI * 2;
+        const wy = s.height - 0.35;
+
+        const barkSh = 0.85 + rand() * 0.22;
+        woodJobs.push({
+          geo: arch.woodLod1,
+          wx, wy, wz, rotY, tiltX: 0, tiltZ: 0, scXZ, scY,
+          rMul: barkSh, gMul: barkSh, bMul: barkSh,
+        });
+
+        const sh = 0.76 + rand() * 0.34;
+        if (arch.spec.leafGroup === 'cedar') {
+          cedarJobs.push({
+            geo: arch.leafLod1,
+            wx, wy, wz, rotY, tiltX: 0, tiltZ: 0, scXZ, scY,
+            rMul: sh * 0.88, gMul: sh * 1.00, bMul: sh * 0.86,
+          });
+        } else {
+          const isWarmOlive = placedTrees % 5 === 0;
+          broadJobs.push({
+            geo: arch.leafLod1,
+            wx, wy, wz, rotY, tiltX: 0, tiltZ: 0, scXZ, scY,
+            rMul: isWarmOlive ? sh * 1.08 : sh * 0.85,
+            gMul: isWarmOlive ? sh * 0.94 : sh * 0.99,
+            bMul: isWarmOlive ? sh * 0.60 : sh * 0.72,
+          });
+        }
+        placedTrees++;
+      }
+    }
+
+    const woodGeo = buildMergedCellGeometry(woodJobs, 1.05);
+    if (woodGeo) {
+      const m = new THREE.Mesh(woodGeo, this.barkMat);
+      m.receiveShadow = true;
+      grp.add(m);
+    }
+
+    const cedarGeo = buildMergedCellGeometry(cedarJobs, 1.00);
+    if (cedarGeo) {
+      const m = new THREE.Mesh(cedarGeo, this.cedarLeafMat);
+      m.receiveShadow = true;
+      grp.add(m);
+    }
+
+    const broadGeo = buildMergedCellGeometry(broadJobs, 1.00);
+    if (broadGeo) {
+      const m = new THREE.Mesh(broadGeo, this.broadLeafMat);
+      m.receiveShadow = true;
+      grp.add(m);
+    }
+
+    return { group: grp, count: placedTrees, cx, cz };
+  }
+
+  /**
+   * Tier 3: Far Mountain Canopy (256m x 256m cells, 460m..2,550m)
+   * Stamps 6 varied organic canopy shapes (tall cedar spire, twin cedar, wide ridge pine umbrella,
+   * wide beech dome, spreading zelkova fan, hillside coppice) into ONLY 2 draw calls per cell!
+   */
+  private buildFarForestCell(cx: number, cz: number): CellEntry {
+    const grp = new THREE.Group();
+    const x0 = cx * FAR_CELL;
+    const z0 = cz * FAR_CELL;
+    const rand = cellHash(cx, cz, 101);
+
+    const cedarJobs: StampJob[] = [];
+    const broadJobs: StampJob[] = [];
+
+    const gridN = 18; // 324 stratified candidates per 256m x 256m -> lush wall-to-wall forested mountains!
+    const step = FAR_CELL / gridN;
+    let placed = 0;
+
+    for (let gz = 0; gz < gridN; gz++) {
+      for (let gx = 0; gx < gridN; gx++) {
+        const wx = x0 + (gx + 0.1 + rand() * 0.8) * step;
+        const wz = z0 + (gz + 0.1 + rand() * 0.8) * step;
+        if (Math.abs(wx) > TERRAIN_EXTENT_X - 24 || Math.abs(wz) > TERRAIN_EXTENT_Z - 24) continue;
+        const s = sampleTerrain(wx, wz);
+        const [, ny] = getTerrainNormal(wx, wz, 4.0);
+        if (!this.canPlaceTree(wx, wz, s.height, ny, s)) continue;
+
+        const altScale = s.height > 600 ? Math.max(0.48, 1.0 - (s.height - 600) / 260) : 1.0;
+        const scXZ = (0.98 + rand() * 0.88) * altScale;
+        const scY = scXZ * (0.86 + rand() * 0.32);
+        const rotY = rand() * Math.PI * 2;
+        const sh = 0.78 + rand() * 0.34;
+
+        if (s.height < 460 && rand() < 0.38) {
+          const shape = this.farBroadShapes[Math.floor(rand() * this.farBroadShapes.length)];
+          const isWarmOlive = placed % 5 === 0;
+          broadJobs.push({
+            geo: shape,
+            wx, wy: s.height - 1.4, wz, rotY, tiltX: 0, tiltZ: 0, scXZ, scY,
+            rMul: isWarmOlive ? sh * 1.08 : sh * 0.84,
+            gMul: isWarmOlive ? sh * 0.95 : sh * 0.98,
+            bMul: isWarmOlive ? sh * 0.64 : sh * 0.72,
+          });
+        } else {
+          const shape = this.farCedarShapes[Math.floor(rand() * this.farCedarShapes.length)];
+          cedarJobs.push({
+            geo: shape,
+            wx, wy: s.height - 1.6, wz, rotY, tiltX: 0, tiltZ: 0, scXZ, scY,
+            rMul: sh * 0.90, gMul: sh * 1.02, bMul: sh * 0.88,
+          });
+        }
+        placed++;
+      }
+    }
+
+    const cedarGeo = buildMergedCellGeometry(cedarJobs, 1.00);
+    if (cedarGeo) {
+      grp.add(new THREE.Mesh(cedarGeo, this.farCedarMat));
+    }
+
+    const broadGeo = buildMergedCellGeometry(broadJobs, 1.00);
+    if (broadGeo) {
+      grp.add(new THREE.Mesh(broadGeo, this.farBroadMat));
+    }
+
+    return { group: grp, count: placed, cx, cz };
+  }
+
+  /**
+   * Tier 4: Ultra-Dense Wind-Swaying Ground Cover (64m x 64m micro-cells)
+   */
+  private buildGrassCell(cx: number, cz: number): CellEntry {
     const grp = new THREE.Group();
     const x0 = cx * GRASS_CELL;
     const z0 = cz * GRASS_CELL;
@@ -535,14 +791,12 @@ export class FoliageStreamer {
     const ferns: Array<[number, number, number, number, number, number]> = [];
     const flowers: Array<[number, number, number, number, number, number]> = [];
 
-    // 460 candidate ground-cover tufts per 64m x 64m micro-cell -> super lush weeds, ferns & pampas!
     for (let i = 0; i < 460; i++) {
       const wx = x0 + rand() * GRASS_CELL;
       const wz = z0 + rand() * GRASS_CELL;
       if (Math.abs(wx) > TERRAIN_EXTENT_X - 8 || Math.abs(wz) > TERRAIN_EXTENT_Z - 8) continue;
       const s = sampleTerrain(wx, wz);
       if (s.height < 3.5 || s.height > 845.0) continue;
-      // Keep center of paved roads, animal trails, and built house interiors clear of wild exterior grass!
       if (s.roadWeight > 0.68 || s.trailWeight > 0.62) continue;
       if (s.terraceWeight > 0.25 && isInsideBuiltHouseFootprint(wx, wz, 0.35)) continue;
       const [, ny] = getTerrainNormal(wx, wz, 2.0);
@@ -553,21 +807,17 @@ export class FoliageStreamer {
       const isRoadEdge = s.roadWeight > 0.12 || s.trailWeight > 0.12 || s.terraceWeight > 0.15;
 
       if (s.height > 610) {
-        // High mountain alpine pampas & tough wind-swept grass
         if (rand() < 0.62) pampas.push([wx, s.height - 0.08, wz, 0.7 + rand() * 0.65, rot, sh]);
         else weeds.push([wx, s.height - 0.06, wz, 0.75 + rand() * 0.5, rot, sh]);
       } else if (isRoadEdge) {
-        // Abandoned 1985 roadside weeds, wildflowers & golden pampas encroaching on terraces!
         const r = rand();
         if (r < 0.45) weeds.push([wx, s.height - 0.06, wz, 0.8 + rand() * 0.65, rot, sh]);
         else if (r < 0.75) pampas.push([wx, s.height - 0.08, wz, 0.75 + rand() * 0.65, rot, sh]);
         else flowers.push([wx, s.height - 0.05, wz, 0.8 + rand() * 0.55, rot, sh]);
       } else if (s.streamWeight > 0.2 || s.height > 320) {
-        // Shaded cedar forest floor: lush ferns + woodland weeds
         if (rand() < 0.65) ferns.push([wx, s.height - 0.06, wz, 0.85 + rand() * 0.65, rot, sh]);
         else weeds.push([wx, s.height - 0.06, wz, 0.75 + rand() * 0.55, rot, sh]);
       } else {
-        // Hillside meadow grass, weeds & pampas
         const r = rand();
         if (r < 0.52) weeds.push([wx, s.height - 0.06, wz, 0.85 + rand() * 0.7, rot, sh]);
         else if (r < 0.78) pampas.push([wx, s.height - 0.08, wz, 0.8 + rand() * 0.7, rot, sh]);
@@ -603,7 +853,7 @@ export class FoliageStreamer {
     addLayer(ferns, this.fernGeo, this.fernMat);
     addLayer(flowers, this.flowerWeedGeo, this.flowerWeedMat);
 
-    return { group: grp, count: weeds.length + pampas.length + ferns.length + flowers.length };
+    return { group: grp, count: weeds.length + pampas.length + ferns.length + flowers.length, cx, cz };
   }
 
   private disposeGroup(grp: THREE.Group): void {
@@ -611,15 +861,35 @@ export class FoliageStreamer {
     grp.traverse((obj) => {
       if ((obj as THREE.InstancedMesh).isInstancedMesh) {
         (obj as THREE.InstancedMesh).dispose();
+      } else if ((obj as THREE.Mesh).isMesh) {
+        // Dispose per-cell merged BufferGeometry (never shared materials!)
+        (obj as THREE.Mesh).geometry.dispose();
       }
     });
   }
 
+  /** Dynamically gate real-time tree shadows to cells within <= 125m so sun shadow map stays ultra-fast! */
+  private updateNearShadows(camX: number, camZ: number): void {
+    const maxShadowDistSq = 126 * 126;
+    for (const entry of this.nearCells.values()) {
+      if (!entry.shadowMeshes) continue;
+      const dx = (entry.cx + 0.5) * NEAR_CELL - camX;
+      const dz = (entry.cz + 0.5) * NEAR_CELL - camZ;
+      const cast = dx * dx + dz * dz <= maxShadowDistSq;
+      for (let i = 0; i < entry.shadowMeshes.length; i++) {
+        if (entry.shadowMeshes[i].castShadow !== cast) {
+          entry.shadowMeshes[i].castShadow = cast;
+        }
+      }
+    }
+  }
+
   public warmStart(camX: number, camZ: number): void {
-    // Synchronously populate immediate grass + near forest + surrounding ridge canopy (non-overlapping!)
     this.streamGrid(camX, camZ, GRASS_CELL, 128, 152, this.grassCells, (cx, cz) => this.buildGrassCell(cx, cz), 18);
-    this.streamGrid(camX, camZ, DETAIL_CELL, 360, 440, this.nearCells, (cx, cz) => this.buildNearForestCell(cx, cz), 20);
-    this.streamGrid(camX, camZ, FOREST_CELL, 2400, 2900, this.farCells, (cx, cz) => this.buildFarForestCell(cx, cz), 64, 340);
+    this.streamGrid(camX, camZ, NEAR_CELL, 155, 188, this.nearCells, (cx, cz) => this.buildNearForestCell(cx, cz), 22);
+    this.streamGrid(camX, camZ, MID_CELL, 465, 525, this.midCells, (cx, cz) => this.buildMidForestCell(cx, cz), 28, 136);
+    this.streamGrid(camX, camZ, FAR_CELL, 2500, 3000, this.farCells, (cx, cz) => this.buildFarForestCell(cx, cz), 68, 425);
+    this.updateNearShadows(camX, camZ);
   }
 
   private streamGrid(
@@ -628,22 +898,23 @@ export class FoliageStreamer {
     cellSize: number,
     loadRadius: number,
     unloadRadius: number,
-    map: Map<string, { group: THREE.Group; count: number }>,
-    builder: (cx: number, cz: number) => { group: THREE.Group; count: number },
+    map: Map<string, CellEntry>,
+    builder: (cx: number, cz: number) => CellEntry,
     maxCreates: number,
-    minDistForFar = 0
+    minDistForOuter = 0
   ): void {
-    // 1. Evict distant cells cleanly
+    const innerEvictMargin = cellSize * 0.45;
+
+    // 1. Evict distant or inner-superseded cells cleanly
     for (const [key, entry] of map.entries()) {
-      const [scx, scz] = key.split(',').map(Number);
-      const dist = Math.hypot((scx + 0.5) * cellSize - camX, (scz + 0.5) * cellSize - camZ);
-      if (dist > unloadRadius || (minDistForFar > 0 && dist < minDistForFar - 90)) {
+      const dist = Math.hypot((entry.cx + 0.5) * cellSize - camX, (entry.cz + 0.5) * cellSize - camZ);
+      if (dist > unloadRadius || (minDistForOuter > 0 && dist < minDistForOuter - innerEvictMargin)) {
         this.disposeGroup(entry.group);
         map.delete(key);
       }
     }
 
-    // 2. Find missing cells within loadRadius, nearest first
+    // 2. Find missing cells within [minDistForOuter, loadRadius], nearest first
     const minCX = Math.max(Math.floor(-TERRAIN_EXTENT_X / cellSize), Math.floor((camX - loadRadius) / cellSize));
     const maxCX = Math.min(Math.floor(TERRAIN_EXTENT_X / cellSize) - 1, Math.floor((camX + loadRadius) / cellSize));
     const minCZ = Math.max(Math.floor(-TERRAIN_EXTENT_Z / cellSize), Math.floor((camZ - loadRadius) / cellSize));
@@ -653,7 +924,7 @@ export class FoliageStreamer {
     for (let cz = minCZ; cz <= maxCZ; cz++) {
       for (let cx = minCX; cx <= maxCX; cx++) {
         const dist = Math.hypot((cx + 0.5) * cellSize - camX, (cz + 0.5) * cellSize - camZ);
-        if (dist > loadRadius || dist < minDistForFar) continue;
+        if (dist > loadRadius || dist < minDistForOuter) continue;
         const key = `${cx},${cz}`;
         if (!map.has(key)) {
           toBuild.push({ cx, cz, key, dist });
@@ -675,24 +946,29 @@ export class FoliageStreamer {
 
   public update(camX: number, camZ: number, elapsedSec: number): void {
     this.windUniform.value = elapsedSec;
-    // Strict per-frame streaming budget: max 2 grass micro-cells, 1 near forest cell, 2 far canopy cells per frame!
+    // Strict per-frame streaming budget so mobile stays butter-smooth even while sprinting!
     this.streamGrid(camX, camZ, GRASS_CELL, 132, 162, this.grassCells, (cx, cz) => this.buildGrassCell(cx, cz), 2);
-    this.streamGrid(camX, camZ, DETAIL_CELL, 380, 460, this.nearCells, (cx, cz) => this.buildNearForestCell(cx, cz), 1);
-    this.streamGrid(camX, camZ, FOREST_CELL, 2500, 3100, this.farCells, (cx, cz) => this.buildFarForestCell(cx, cz), 2, 320);
+    this.streamGrid(camX, camZ, NEAR_CELL, 160, 192, this.nearCells, (cx, cz) => this.buildNearForestCell(cx, cz), 2);
+    this.streamGrid(camX, camZ, MID_CELL, 470, 530, this.midCells, (cx, cz) => this.buildMidForestCell(cx, cz), 1, 136);
+    this.streamGrid(camX, camZ, FAR_CELL, 2550, 3050, this.farCells, (cx, cz) => this.buildFarForestCell(cx, cz), 2, 425);
+    this.updateNearShadows(camX, camZ);
   }
 
   public getStats(): FoliageStreamStats {
     let visibleTrees = 0;
     let visibleGrassTufts = 0;
-    for (const v of this.farCells.values()) visibleTrees += v.count;
     for (const v of this.nearCells.values()) visibleTrees += v.count;
+    for (const v of this.midCells.values()) visibleTrees += v.count;
+    for (const v of this.farCells.values()) visibleTrees += v.count;
     for (const v of this.grassCells.values()) visibleGrassTufts += v.count;
     return {
       farForestCells: this.farCells.size,
+      midForestCells: this.midCells.size,
       nearForestCells: this.nearCells.size,
       grassCells: this.grassCells.size,
       visibleTrees,
       visibleGrassTufts,
+      archetypeCount: this.archetypes.length,
     };
   }
 }

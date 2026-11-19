@@ -207,6 +207,10 @@ export class GameHUD {
       )
       .join('');
 
+    const builtCount = this.builtStructures.length;
+    const totalPlannedHouses = PLANNED_SITES.filter((s) => s.category === 'house').length;
+    const remainingHouses = Math.max(0, totalPlannedHouses - builtCount);
+
     this.root.innerHTML = `
       <!-- Portrait orientation suggestion -->
       <div class="portrait-banner" id="portrait-banner">
@@ -225,10 +229,10 @@ export class GameHUD {
       <div class="wakeup-overlay ${skipIntro ? 'hidden' : ''}" id="wakeup-overlay">
         <div class="wakeup-card">
           <div class="wakeup-eyebrow">KUROISO-JIMA 1985 — 2KM × 5KM ISOLATED MOUNTAIN ISLAND</div>
-          <h1 class="wakeup-title">黒磯島 — 1985年廃村探索（伝統瓦木造民家 10軒公開）</h1>
+          <h1 class="wakeup-title">黒磯島 — 1985年廃村探索（伝統瓦木造民家 ${builtCount}軒公開）</h1>
           <p class="wakeup-story">
             冷たい砂と波音の中で目を覚ました。あたり一面は見渡す限りの外洋、救助は来ない。<br/>
-            山の斜面（標高約254m）に建ち並ぶ<strong>明治築・2〜4階建て伝統瓦の木造民家10軒</strong>はすべて内部探索と階段昇降が可能。さらに獣道の先に<strong>標高865mの黒磯岳山頂</strong>と<strong>秘境の旧港</strong>が広がっている。
+            山の斜面（標高約254m）に建ち並ぶ<strong>明治築・2〜4階建て伝統瓦の木造民家${builtCount}軒</strong>はすべて内部探索と階段昇降が可能。32種の高密度原生林を抜けた獣道の先には<strong>標高865mの黒磯岳山頂</strong>と<strong>秘境の旧港</strong>が広がっている。
           </p>
           <div class="wakeup-actions">
             <button class="btn-primary" id="btn-wake-start">立ち上がって探索を始める</button>
@@ -327,11 +331,11 @@ export class GameHUD {
             </div>
 
             <div class="settings-note">
-              <strong>2km×5km ストリーミング＋家屋GPUバッチ最適化稼働中</strong><br/>
+              <strong>2km×5km ストリーミング＋32樹種高密度森林＆家屋GPUバッチ稼働中</strong><br/>
               ・4段階マルチLOD地形チャンク（640区画を毎フレーム4.2ms予算で動的ロード＆破棄）<br/>
-              ・3階層インスタンス植生（遠景森林 256m / 近景精密樹木 128m / 風揺れ雑草 64m）<br/>
-              ・建築済2〜4階建伝統瓦木造民家10軒（マテリアル別静的GPU統合＋距離カリング）<br/>
-              ※ 残り15軒・商業施設2軒・1890年炭鉱内部・KHDR・Shadow Flameは次フェーズにて実装予定。
+              ・4階層高密度森林（32種・4〜15枝の自然樹木を区画3ドローコールへ静的GPU統合＋距離影制御）<br/>
+              ・建築済2〜4階建伝統瓦木造民家${builtCount}軒（マテリアル別静的GPU統合＋距離カリング）<br/>
+              ※ 残り${remainingHouses}軒・商業施設2軒・1890年炭鉱内部・KHDR・Shadow Flameは次フェーズにて実装予定。
             </div>
           </div>
         </div>
@@ -349,12 +353,12 @@ export class GameHUD {
               <canvas class="map-canvas" id="topo-map-canvas" width="${this.MAP_W}" height="${this.MAP_H}"></canvas>
             </div>
             <div class="map-sidebar">
-              ${houseButtons ? `<div class="map-sidebar-title">建築済 伝統瓦民家（10軒・入室可）</div><div class="map-tp-list" id="map-house-list">${houseButtons}</div>` : ''}
+              ${houseButtons ? `<div class="map-sidebar-title">建築済 伝統瓦民家（${builtCount}軒・入室可）</div><div class="map-tp-list" id="map-house-list">${houseButtons}</div>` : ''}
               <div class="map-sidebar-title" style="margin-top:4px;">主要拠点・展望スポットへ移動</div>
               <div class="map-tp-list" id="map-tp-list">${landmarkButtons}</div>
               <div class="map-legend">
-                <div class="legend-item"><span class="legend-swatch" style="background:#ffd36e;border:1px solid #2e1f12;"></span>建築済民家(10)</div>
-                <div class="legend-item"><span class="legend-swatch" style="background:#a87b58;"></span>民家予定地(15)</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#ffd36e;border:1px solid #2e1f12;"></span>建築済民家(${builtCount})</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#a87b58;"></span>民家予定地(${remainingHouses})</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#f2e7cc;"></span>村道/海岸林道</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#f2a649;"></span>獣道/けもの道</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#e85b48;"></span>商店(2)/交番(1)</div>

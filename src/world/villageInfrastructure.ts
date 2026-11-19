@@ -62,7 +62,15 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
     siteGrp.rotation.y = s.yaw;
 
     // Hillside stone retaining embankment (石垣) holding up each terraced plot
-    if (s.category !== 'secret_base' && s.category !== 'port' && s.id !== 'H09' && s.id !== 'H22') {
+    if (
+      s.category !== 'secret_base' &&
+      s.category !== 'port' &&
+      s.id !== 'H09' &&
+      s.id !== 'H13' &&
+      s.id !== 'H20' &&
+      s.id !== 'H22' &&
+      s.id !== 'H23'
+    ) {
       const wallH = s.category === 'park' ? 3.2 : 4.2;
       const wall = new THREE.Mesh(
         new THREE.BoxGeometry(s.radiusX * 1.96, wallH, s.radiusZ * 1.96),

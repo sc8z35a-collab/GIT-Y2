@@ -447,6 +447,11 @@ function bootstrap(): void {
       foliage: foliageStreamer.getStats(),
       houses: houseSystem.getStats(),
       render: [renderWidth, renderHeight],
+      rendererInfo: {
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+        geometries: renderer.info.memory.geometries,
+      },
     }),
   };
 
