@@ -1,9 +1,10 @@
-import { GraphicsSettings, ResolutionPreset, FpsLimitMode } from '../core/types';
+import { GraphicsSettings, ResolutionPreset, FpsLimitMode, BuiltStructure } from '../core/types';
 import {
   TERRAIN_EXTENT_X,
   TERRAIN_EXTENT_Z,
   GRADED_PATHS,
   PLANNED_SITES,
+  BUILT_HOUSE_IDS,
   SPAWN_POINT,
   LOOKOUT_POINT,
   KOBAN_POINT,
@@ -16,6 +17,7 @@ import {
 } from '../world/terrainMath';
 import type { TerrainStreamStats } from '../world/terrainStreamer';
 import type { FoliageStreamStats } from '../world/foliageStreamer';
+import type { HouseStreamStats } from '../world/houses';
 import type { FirstPersonController } from '../player/firstPersonController';
 
 export interface HudCallbacks {
@@ -31,6 +33,7 @@ export interface HudFrameMetrics {
   renderHeight: number;
   terrain: TerrainStreamStats;
   foliage: FoliageStreamStats;
+  houses: HouseStreamStats;
 }
 
 interface QuickLandmark {
@@ -40,6 +43,7 @@ interface QuickLandmark {
   z: number;
   yaw: number;
   pitch?: number;
+  isHouse?: boolean;
 }
 
 const QUICK_LANDMARKS: QuickLandmark[] = [
@@ -109,6 +113,9 @@ export class GameHUD {
   private readonly root: HTMLElement;
   private readonly controller: FirstPersonController;
   private readonly callbacks: HudCallbacks;
+  private readonly builtStructures: BuiltStructure[];
+  private readonly structureById = new Map<string, BuiltStructure>();
+  private readonly mapQuickPoints: QuickLandmark[] = [];
   private settings: GraphicsSettings;
 
   // DOM elements updated every frame / periodically
@@ -140,28 +147,65 @@ export class GameHUD {
     controller: FirstPersonController,
     initialSettings: GraphicsSettings,
     callbacks: HudCallbacks,
-    skipIntro = false
+    skipIntro = false,
+    builtStructures: BuiltStructure[] = []
   ) {
     this.root = root;
     this.controller = controller;
     this.settings = { ...initialSettings };
     this.callbacks = callbacks;
+    this.builtStructures = builtStructures;
+    for (let i = 0; i < builtStructures.length; i++) {
+      this.structureById.set(builtStructures[i].id, builtStructures[i]);
+    }
     this.touchEnabled =
       window.matchMedia('(pointer: coarse)').matches ||
       (navigator.maxTouchPoints ?? 0) > 0;
+
+    // Build ordered quick-jump targets: landmarks first, then all built 2F-4F kawara houses
+    this.mapQuickPoints.push(...QUICK_LANDMARKS);
+    for (let i = 0; i < builtStructures.length; i++) {
+      const s = builtStructures[i];
+      const floors = s.stories ? `${s.stories}F` : '2F';
+      this.mapQuickPoints.push({
+        label: `[${s.id}] ${s.name}`,
+        elev: `${floors} · ${Math.round(s.position.y)}m`,
+        x: s.entryPoint.x,
+        z: s.entryPoint.z,
+        yaw: s.entryPoint.lookYaw ?? s.yaw,
+        pitch: 0.04,
+        isHouse: true,
+      });
+    }
 
     this.renderMarkup(skipIntro);
     this.bindEvents();
   }
 
   private renderMarkup(skipIntro: boolean): void {
-    const landmarkButtons = QUICK_LANDMARKS.map(
-      (lm, idx) => `
+    const landmarkButtons = this.mapQuickPoints
+      .map((lm, idx) => ({ lm, idx }))
+      .filter((e) => !e.lm.isHouse)
+      .map(
+        ({ lm, idx }) => `
         <button class="map-tp-btn" data-tp-idx="${idx}">
           <span>${lm.label}</span>
           <span class="map-tp-elev">${lm.elev}</span>
         </button>`
-    ).join('');
+      )
+      .join('');
+
+    const houseButtons = this.mapQuickPoints
+      .map((lm, idx) => ({ lm, idx }))
+      .filter((e) => e.lm.isHouse)
+      .map(
+        ({ lm, idx }) => `
+        <button class="map-tp-btn" style="border-color: rgba(255, 211, 110, 0.35);" data-tp-idx="${idx}">
+          <span>${lm.label}</span>
+          <span class="map-tp-elev">${lm.elev}</span>
+        </button>`
+      )
+      .join('');
 
     this.root.innerHTML = `
       <!-- Portrait orientation suggestion -->
@@ -181,11 +225,10 @@ export class GameHUD {
       <div class="wakeup-overlay ${skipIntro ? 'hidden' : ''}" id="wakeup-overlay">
         <div class="wakeup-card">
           <div class="wakeup-eyebrow">KUROISO-JIMA 1985 — 2KM × 5KM ISOLATED MOUNTAIN ISLAND</div>
-          <h1 class="wakeup-title">黒磯島 — 1985年廃村・孤島地形探索</h1>
+          <h1 class="wakeup-title">黒磯島 — 1985年廃村探索（伝統瓦木造民家 10軒公開）</h1>
           <p class="wakeup-story">
             冷たい砂と波音の中で目を覚ました。あたり一面は見渡す限りの外洋、救助は来ない。<br/>
-            背後にそびえる山の斜面（標高約254m）に廃村予定地と道路網、さらに獣道を登り詰めた先に
-            <strong>標高865mの黒磯岳山頂</strong>と<strong>秘境の旧港</strong>が広がっている。
+            山の斜面（標高約254m）に建ち並ぶ<strong>明治築・2〜4階建て伝統瓦の木造民家10軒</strong>はすべて内部探索と階段昇降が可能。さらに獣道の先に<strong>標高865mの黒磯岳山頂</strong>と<strong>秘境の旧港</strong>が広がっている。
           </p>
           <div class="wakeup-actions">
             <button class="btn-primary" id="btn-wake-start">立ち上がって探索を始める</button>
@@ -284,10 +327,11 @@ export class GameHUD {
             </div>
 
             <div class="settings-note">
-              <strong>2km×5km ストリーミング最適化稼働中</strong><br/>
+              <strong>2km×5km ストリーミング＋家屋GPUバッチ最適化稼働中</strong><br/>
               ・4段階マルチLOD地形チャンク（640区画を毎フレーム4.2ms予算で動的ロード＆破棄）<br/>
-              ・3階層インスタンス植生（遠景森林 256m / 近景精密樹木 128m / 風揺れ雑草・シダ・ススキ 64m）<br/>
-              ※ KHDR・Shadow Flame・25軒の個別手作業家屋建築は次フェーズにて実装予定。
+              ・3階層インスタンス植生（遠景森林 256m / 近景精密樹木 128m / 風揺れ雑草 64m）<br/>
+              ・建築済2〜4階建伝統瓦木造民家10軒（マテリアル別静的GPU統合＋距離カリング）<br/>
+              ※ 残り15軒・商業施設2軒・1890年炭鉱内部・KHDR・Shadow Flameは次フェーズにて実装予定。
             </div>
           </div>
         </div>
@@ -297,7 +341,7 @@ export class GameHUD {
       <div class="modal-backdrop" id="map-modal">
         <div class="modal-panel map-panel">
           <div class="modal-header">
-            <h2 class="modal-title">黒磯島 2km × 5km 地形図・配置計画（クリックで現地視察移動）</h2>
+            <h2 class="modal-title">黒磯島 2km × 5km 地形図・建築済民家（クリックで現地移動）</h2>
             <button class="modal-close" id="btn-close-map">閉じる (M)</button>
           </div>
           <div class="map-layout">
@@ -305,15 +349,16 @@ export class GameHUD {
               <canvas class="map-canvas" id="topo-map-canvas" width="${this.MAP_W}" height="${this.MAP_H}"></canvas>
             </div>
             <div class="map-sidebar">
-              <div class="map-sidebar-title">主要拠点・展望スポットへ移動</div>
+              ${houseButtons ? `<div class="map-sidebar-title">建築済 伝統瓦民家（10軒・入室可）</div><div class="map-tp-list" id="map-house-list">${houseButtons}</div>` : ''}
+              <div class="map-sidebar-title" style="margin-top:4px;">主要拠点・展望スポットへ移動</div>
               <div class="map-tp-list" id="map-tp-list">${landmarkButtons}</div>
               <div class="map-legend">
+                <div class="legend-item"><span class="legend-swatch" style="background:#ffd36e;border:1px solid #2e1f12;"></span>建築済民家(10)</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#a87b58;"></span>民家予定地(15)</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#f2e7cc;"></span>村道/海岸林道</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#f2a649;"></span>獣道/けもの道</div>
-                <div class="legend-item"><span class="legend-swatch" style="background:#d99a6c;"></span>民家予定地(25)</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#e85b48;"></span>商店(2)/交番(1)</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#63c778;"></span>公園/秘密基地</div>
-                <div class="legend-item"><span class="legend-swatch" style="background:#4bc4df;"></span>炭鉱/秘境旧港</div>
               </div>
             </div>
           </div>
@@ -464,11 +509,11 @@ export class GameHUD {
       });
     });
 
-    // Quick-jump landmark buttons
+    // Quick-jump landmark & built house buttons
     this.root.querySelectorAll('.map-tp-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const idx = Number((btn as HTMLElement).dataset.tpIdx);
-        const lm = QUICK_LANDMARKS[idx];
+        const lm = this.mapQuickPoints[idx];
         if (!lm) return;
         this.wakeupOverlay.classList.add('hidden');
         this.callbacks.onTeleport(lm.x, lm.z, lm.yaw, lm.pitch ?? -0.05);
@@ -704,9 +749,9 @@ export class GameHUD {
     }
     ctx.setLineDash([]);
 
-    // Overlay all 32 planned sites
+    // Overlay all 32 planned sites (highlight the 10 completed 2F-4F kawara houses in gold)
     const catColors: Record<string, string> = {
-      house: '#d99a6c',
+      house: '#a87b58',
       shop: '#f06449',
       koban: '#4d96ff',
       park: '#63c778',
@@ -716,9 +761,18 @@ export class GameHUD {
     };
     for (const s of PLANNED_SITES) {
       const [mx, my] = this.worldToMap(s.x, s.z);
-      ctx.fillStyle = catColors[s.category] ?? '#ffffff';
-      const sz = s.category === 'house' ? 3.2 : 5.2;
-      ctx.fillRect(mx - sz * 0.5, my - sz * 0.5, sz, sz);
+      if (s.category === 'house' && BUILT_HOUSE_IDS.has(s.id)) {
+        const sz = 4.8;
+        ctx.fillStyle = '#ffd36e';
+        ctx.fillRect(mx - sz * 0.5, my - sz * 0.5, sz, sz);
+        ctx.strokeStyle = '#2e1f12';
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(mx - sz * 0.5, my - sz * 0.5, sz, sz);
+      } else {
+        ctx.fillStyle = catColors[s.category] ?? '#ffffff';
+        const sz = s.category === 'house' ? 3.0 : 5.2;
+        ctx.fillRect(mx - sz * 0.5, my - sz * 0.5, sz, sz);
+      }
     }
 
     // 865m Summit star
@@ -781,32 +835,57 @@ export class GameHUD {
     this.lastUiSync = nowMs;
 
     const p = this.controller.position;
-    this.zoneEl.textContent = classifyZone(p.x, p.y, p.z);
-    this.elevEl.textContent = `標高 ${p.y.toFixed(1)}m`;
-    this.compassEl.textContent = getCompassText(this.controller.yaw);
+    const inside = this.controller.insideStructure;
 
-    // Show nearest planned site info when within 26m
-    let bestDist = 26;
-    let bestSite: (typeof PLANNED_SITES)[number] | null = null;
-    for (let i = 0; i < PLANNED_SITES.length; i++) {
-      const s = PLANNED_SITES[i];
-      const d = Math.hypot(p.x - s.x, p.z - s.z);
-      if (d < bestDist) {
-        bestDist = d;
-        bestSite = s;
+    if (inside) {
+      const localY = p.y - inside.position.y;
+      const elevs = inside.floorElevations;
+      let floorNum = 1;
+      if (elevs && elevs.length > 0) {
+        for (let i = 0; i < elevs.length; i++) {
+          if (localY >= elevs[i] - 0.55) floorNum = i + 1;
+        }
       }
-    }
-    if (bestSite) {
-      this.siteHintEl.textContent = `造成予定地 [${bestSite.id}] ${bestSite.name}（${bestSite.note}）`;
+      const meijiYear = Math.max(1, inside.builtYear - 1867);
+      const shortName = inside.name.split('（')[0];
+      this.zoneEl.textContent = `[${inside.id}] ${shortName} — ${floorNum}F / 全${inside.stories ?? elevs?.length ?? 2}階`;
+      this.siteHintEl.textContent = `${inside.name} ｜ 明治${meijiYear}年（${inside.builtYear}年）築・${inside.abandonedYear}年廃村`;
       this.siteHintEl.classList.add('visible');
     } else {
-      this.siteHintEl.classList.remove('visible');
+      this.zoneEl.textContent = classifyZone(p.x, p.y, p.z);
+
+      // Show nearest built house or planned site info when within 28m
+      let bestDist = 28;
+      let bestSite: (typeof PLANNED_SITES)[number] | null = null;
+      for (let i = 0; i < PLANNED_SITES.length; i++) {
+        const s = PLANNED_SITES[i];
+        const d = Math.hypot(p.x - s.x, p.z - s.z);
+        if (d < bestDist) {
+          bestDist = d;
+          bestSite = s;
+        }
+      }
+      if (bestSite) {
+        const built = this.structureById.get(bestSite.id);
+        if (built) {
+          const stories = built.stories ?? built.floorElevations?.length ?? 2;
+          this.siteHintEl.textContent = `建築済 [${built.id}] ${built.name}（${stories}階建・${built.builtYear}年築）— 入室・階段昇降可`;
+        } else {
+          this.siteHintEl.textContent = `造成予定地 [${bestSite.id}] ${bestSite.name}（${bestSite.note}）`;
+        }
+        this.siteHintEl.classList.add('visible');
+      } else {
+        this.siteHintEl.classList.remove('visible');
+      }
     }
+
+    this.elevEl.textContent = `標高 ${p.y.toFixed(1)}m`;
+    this.compassEl.textContent = getCompassText(this.controller.yaw);
 
     const triK = (metrics.terrain.approxTriangles / 1000).toFixed(0);
     this.telemetryEl.innerHTML =
       `<strong>${metrics.fps.toFixed(0)} FPS</strong> · ${metrics.frameMs.toFixed(1)}ms · ${metrics.renderWidth}×${metrics.renderHeight}<br/>` +
-      `地形 ${metrics.terrain.activeChunks}ch (${triK}k△) · 木${metrics.foliage.visibleTrees} / 草${metrics.foliage.visibleGrassTufts}`;
+      `地形 ${metrics.terrain.activeChunks}ch (${triK}k△) · 木${metrics.foliage.visibleTrees} / 民家${metrics.houses.visibleHouses}(内装${metrics.houses.visibleInteriors})`;
 
     if (this.mapOpen) {
       this.drawDynamicMapOverlay();

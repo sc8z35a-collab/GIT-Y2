@@ -49,6 +49,9 @@ export interface BuiltStructure {
   walkSurfaces: LocalWalkSurface[];
   /** Local volumes where the terrain heightfield is bypassed (e.g., underground coal mine). */
   caveOverrides?: LocalBoxCollider[];
+  /** Number of stories (2–4) and local Y elevations of each floor for accurate HUD floor readouts. */
+  stories?: number;
+  floorElevations?: number[];
   /** World-space vantage point just outside the primary entrance (used for map navigation). */
   entryPoint: { x: number; y: number; z: number; lookYaw?: number };
   worldBounds: THREE.Box3;

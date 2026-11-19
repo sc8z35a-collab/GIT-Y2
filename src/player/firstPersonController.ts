@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WorldCollision } from '../core/collision';
+import type { BuiltStructure } from '../core/types';
 import { SPAWN_POINT, getTerrainHeight } from '../world/terrainMath';
 
 export interface ControllerState {
@@ -10,6 +11,7 @@ export interface ControllerState {
   sprinting: boolean;
   crouching: boolean;
   inIntro: boolean;
+  insideStructure: BuiltStructure | null;
 }
 
 const EYE_STAND = 1.68;
@@ -34,6 +36,7 @@ export class FirstPersonController {
   public sprinting = false;
   public crouching = false;
   public inIntro = true;
+  public insideStructure: BuiltStructure | null = null;
 
   private readonly camera: THREE.PerspectiveCamera;
   private readonly domElement: HTMLElement;
@@ -198,8 +201,8 @@ export class FirstPersonController {
     this.pitch = Math.max(-1.42, Math.min(1.42, this.pitch - dy * sensitivity));
   }
 
-  public teleport(x: number, z: number, yaw?: number, pitch = -0.06): void {
-    const h = Math.max(0.35, getTerrainHeight(x, z));
+  public teleport(x: number, z: number, yaw?: number, pitch = -0.06, yOverride?: number): void {
+    const h = yOverride !== undefined ? yOverride : Math.max(0.35, getTerrainHeight(x, z));
     this.position.set(x, h, z);
     this.velocityY = 0;
     this.grounded = true;
@@ -320,6 +323,7 @@ export class FirstPersonController {
 
     this.position.copy(res.position);
     this.grounded = res.grounded;
+    this.insideStructure = res.insideStructure;
     if (this.grounded && this.velocityY < 0) {
       this.velocityY = 0;
     }
@@ -365,6 +369,7 @@ export class FirstPersonController {
       sprinting: this.sprinting,
       crouching: this.crouching,
       inIntro: this.inIntro,
+      insideStructure: this.insideStructure,
     };
   }
 

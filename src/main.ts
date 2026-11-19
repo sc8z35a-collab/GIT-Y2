@@ -17,6 +17,7 @@ import { TerrainStreamer } from './world/terrainStreamer';
 import { FoliageStreamer } from './world/foliageStreamer';
 import { buildOceanSystem } from './world/ocean';
 import { buildVillageInfrastructure } from './world/villageInfrastructure';
+import { buildAllHouses } from './world/houses';
 import { FirstPersonController } from './player/firstPersonController';
 import { GameHUD } from './ui/hud';
 
@@ -200,33 +201,52 @@ function bootstrap(): void {
   // 4. Shared Texture Catalog (212 WebP tiles strictly from user-provided assets/textures/)
   const catalog = new TextureCatalog(renderer);
 
-  // 5. Dynamic 4-LOD Streaming Terrain, 3-Tier Streaming Forest & Wind Grass, Ocean & Hillside Infrastructure
+  // 5. Dynamic 4-LOD Streaming Terrain, 3-Tier Streaming Forest & Wind Grass, Ocean, Infrastructure & 10 Hand-Crafted Houses
   const collision = new WorldCollision();
   const terrainStreamer = new TerrainStreamer(catalog);
   const foliageStreamer = new FoliageStreamer(catalog);
   const oceanSystem = buildOceanSystem(catalog, SUN_DIRECTION);
   const infrastructure = buildVillageInfrastructure(catalog);
+  const houseSystem = buildAllHouses(catalog);
+
+  collision.registerStructures(houseSystem.structures);
 
   scene.add(terrainStreamer.group);
   scene.add(foliageStreamer.group);
   scene.add(oceanSystem.group);
   scene.add(infrastructure);
+  scene.add(houseSystem.group);
+
+  // Register lowercase house IDs (h01, h02, ..., h22) as instant teleport presets
+  const presets: Record<string, { x: number; z: number; yaw: number; pitch: number }> = {
+    ...TELEPORT_PRESETS,
+  };
+  for (let i = 0; i < houseSystem.structures.length; i++) {
+    const s = houseSystem.structures[i];
+    presets[s.id.toLowerCase()] = {
+      x: s.entryPoint.x,
+      z: s.entryPoint.z,
+      yaw: s.entryPoint.lookYaw ?? s.yaw,
+      pitch: 0.04,
+    };
+  }
 
   // 6. Player First-Person Controller (supports optional ?tp= preset for instant inspection)
   const controller = new FirstPersonController(camera, canvas, collision, skipIntro);
 
-  const tpKey = params.get('tp');
-  if (tpKey && TELEPORT_PRESETS[tpKey]) {
-    const t = TELEPORT_PRESETS[tpKey];
+  const tpKey = params.get('tp')?.toLowerCase();
+  if (tpKey && presets[tpKey]) {
+    const t = presets[tpKey];
     const yawOverride = params.has('yaw') ? Number(params.get('yaw')) : t.yaw;
     const pitchOverride = params.has('pitch') ? Number(params.get('pitch')) : t.pitch;
     controller.teleport(t.x, t.z, yawOverride, pitchOverride);
   }
 
-  // Instant warm-start around initial position (builds immediate LOD0/1 terrain, grass, and horizon silhouettes)
+  // Instant warm-start around initial position (builds immediate LOD0/1 terrain, grass, and house visibility)
   const warmStreamAroundPlayer = () => {
     terrainStreamer.warmStart(controller.position.x, controller.position.z);
     foliageStreamer.warmStart(controller.position.x, controller.position.z);
+    houseSystem.update(controller.position);
   };
   warmStreamAroundPlayer();
 
@@ -279,7 +299,8 @@ function bootstrap(): void {
         controller.beginWakeUp();
       },
     },
-    skipIntro
+    skipIntro,
+    houseSystem.structures
   );
 
   // 9. Main Render Loop with 120 FPS / Unlimited FPS Pacing & Streaming Budgets
@@ -288,6 +309,7 @@ function bootstrap(): void {
   let smoothFrameMs = 16.6;
   const startTime = lastRenderTime;
   let renderedFrames = 0;
+  let loopPaused = false;
 
   const updateSunShadowFollow = () => {
     // Snap shadow camera center to 2m grid increments to completely eliminate shadow shimmering!
@@ -303,15 +325,7 @@ function bootstrap(): void {
     sunLight.target.updateMatrixWorld();
   };
 
-  const animate = (now: number) => {
-    requestAnimationFrame(animate);
-
-    // Enforce 120 FPS cap when selected; render uncapped in 'unlimited' mode
-    if (settings.fpsLimit === '120') {
-      const minInterval = 1000 / 120 - 0.45;
-      if (now - lastRenderTime < minInterval) return;
-    }
-
+  const renderSingleFrame = (now: number, forceHud = false) => {
     const frameMsRaw = Math.max(1.0, now - lastRenderTime);
     const physDt = Math.max(0.001, (now - lastPhysicsTime) * 0.001);
     lastRenderTime = now;
@@ -326,10 +340,11 @@ function bootstrap(): void {
     skyDome.position.copy(camera.position);
     updateSunShadowFollow();
 
-    // Update ocean waves & strictly budgeted terrain / foliage streaming
+    // Update ocean waves, strictly budgeted terrain/foliage streaming & house distance culling
     oceanSystem.update(elapsedSec);
     terrainStreamer.update(controller.position.x, controller.position.z, 4.2);
     foliageStreamer.update(controller.position.x, controller.position.z, elapsedSec);
+    houseSystem.update(controller.position);
 
     // Render frame
     renderer.render(scene, camera);
@@ -349,8 +364,9 @@ function bootstrap(): void {
         renderHeight,
         terrain: terrainStreamer.getStats(),
         foliage: foliageStreamer.getStats(),
+        houses: houseSystem.getStats(),
       },
-      now
+      forceHud ? now + 500 : now
     );
 
     renderedFrames++;
@@ -359,26 +375,77 @@ function bootstrap(): void {
     }
   };
 
+  const animate = (now: number) => {
+    requestAnimationFrame(animate);
+    if (loopPaused) return;
+
+    // Enforce 120 FPS cap when selected; render uncapped in 'unlimited' mode
+    if (settings.fpsLimit === '120') {
+      const minInterval = 1000 / 120 - 0.45;
+      if (now - lastRenderTime < minInterval) return;
+    }
+
+    renderSingleFrame(now);
+  };
+
   // Expose lightweight debug telemetry for verification scripts
   (window as unknown as Record<string, unknown>).__KUROISO_DEBUG__ = {
-    teleport: (x: number, z: number, yaw?: number, pitch?: number) => {
-      controller.teleport(x, z, yaw, pitch);
+    setPaused: (paused: boolean) => {
+      loopPaused = paused;
+    },
+    renderFrame: () => {
+      renderSingleFrame(performance.now(), true);
+    },
+    teleport: (x: number, z: number, yaw?: number, pitch?: number, yOverride?: number) => {
+      controller.teleport(x, z, yaw, pitch, yOverride);
       warmStreamAroundPlayer();
       skyDome.position.copy(camera.position);
       updateSunShadowFollow();
     },
     teleportPreset: (key: string, yawOverride?: number, pitchOverride?: number) => {
-      const t = TELEPORT_PRESETS[key];
+      const t = presets[key.toLowerCase()];
       if (!t) return;
       controller.teleport(t.x, t.z, yawOverride ?? t.yaw, pitchOverride ?? t.pitch);
       warmStreamAroundPlayer();
       skyDome.position.copy(camera.position);
       updateSunShadowFollow();
     },
+    teleportHouse: (
+      id: string,
+      lx: number,
+      ly: number | null,
+      lz: number,
+      localYaw = 0,
+      pitch = -0.04
+    ) => {
+      const s = houseSystem.getById(id.toUpperCase());
+      if (!s) return false;
+      const c = Math.cos(s.yaw);
+      const sn = Math.sin(s.yaw);
+      const wx = s.position.x + lx * c + lz * sn;
+      const wz = s.position.z - lx * sn + lz * c;
+      const wy = ly === null ? undefined : s.position.y + ly;
+      controller.teleport(wx, wz, s.yaw + localYaw, pitch, wy);
+      warmStreamAroundPlayer();
+      skyDome.position.copy(camera.position);
+      updateSunShadowFollow();
+      return true;
+    },
+    houses: houseSystem.structures.map((s) => ({
+      id: s.id,
+      name: s.name,
+      stories: s.stories,
+      pos: s.position.toArray(),
+      yaw: s.yaw,
+      entry: s.entryPoint,
+      floors: s.floorElevations,
+    })),
     getStats: () => ({
       pos: controller.position.toArray(),
+      inside: controller.insideStructure?.id ?? null,
       terrain: terrainStreamer.getStats(),
       foliage: foliageStreamer.getStats(),
+      houses: houseSystem.getStats(),
       render: [renderWidth, renderHeight],
     }),
   };

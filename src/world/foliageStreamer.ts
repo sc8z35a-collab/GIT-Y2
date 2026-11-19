@@ -7,6 +7,7 @@ import {
   LOOKOUT_POINT,
   sampleTerrain,
   getTerrainNormal,
+  isInsideBuiltHouseFootprint,
 } from './terrainMath';
 
 const FOREST_CELL = 256; // Macro & mid forest canopy streaming cell (256m x 256m)
@@ -541,8 +542,9 @@ export class FoliageStreamer {
       if (Math.abs(wx) > TERRAIN_EXTENT_X - 8 || Math.abs(wz) > TERRAIN_EXTENT_Z - 8) continue;
       const s = sampleTerrain(wx, wz);
       if (s.height < 3.5 || s.height > 845.0) continue;
-      // Keep center of paved roads & animal trails mostly clear, while letting weeds encroach along edges!
+      // Keep center of paved roads, animal trails, and built house interiors clear of wild exterior grass!
       if (s.roadWeight > 0.68 || s.trailWeight > 0.62) continue;
+      if (s.terraceWeight > 0.25 && isInsideBuiltHouseFootprint(wx, wz, 0.35)) continue;
       const [, ny] = getTerrainNormal(wx, wz, 2.0);
       if (ny < 0.56) continue;
 

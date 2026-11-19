@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TextureCatalog } from '../core/textureCatalog';
 import {
   PLANNED_SITES,
+  BUILT_HOUSE_IDS,
   GRADED_PATHS,
   SPAWN_POINT,
   SUMMIT_POINT,
@@ -16,10 +17,9 @@ import {
 
 /**
  * Builds the 2km x 5km hillside road infrastructure, site preparation (石垣 retaining walls
- * & weathered boundary stakes for all 25 houses, 2 shops, 1 koban, 1 park, 1 secret base,
- * 1890 coal mine gorge, and hidden port plan), wooden utility poles & sagging wires,
+ * & weathered boundary stakes for unbuilt planned plots), wooden utility poles & sagging wires,
  * guardrails, Lookout Bend mossy graveyard/Jizo lanterns, 865m summit triangulation marker,
- * Kuroiso Gorge stream, and Driftwood Cove beach remnants — with ZERO houses built yet.
+ * Kuroiso Gorge stream, and Driftwood Cove beach remnants.
  */
 export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group {
   const group = new THREE.Group();
@@ -40,7 +40,7 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
   const wireMat = new THREE.LineBasicMaterial({ color: 0x1a1c20, transparent: true, opacity: 0.72 });
 
   // =========================================================================
-  // 1. STONE RETAINING WALLS (石垣) & SUBTLE SITE BOUNDARY STAKES FOR ALL 32 PLANNED SITES
+  // 1. STONE RETAINING WALLS (石垣) & SUBTLE SITE BOUNDARY STAKES FOR UNBUILT PLOTS
   // =========================================================================
   const stakeGeo = new THREE.BoxGeometry(0.14, 1.15, 0.14);
   const cornerStoneGeo = new THREE.BoxGeometry(0.45, 0.36, 0.45);
@@ -56,15 +56,16 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
 
   for (let i = 0; i < PLANNED_SITES.length; i++) {
     const s = PLANNED_SITES[i];
+    const isBuilt = BUILT_HOUSE_IDS.has(s.id);
     const siteGrp = new THREE.Group();
     siteGrp.position.set(s.x, s.y, s.z);
     siteGrp.rotation.y = s.yaw;
 
     // Hillside stone retaining embankment (石垣) holding up each terraced plot
-    if (s.category !== 'secret_base' && s.category !== 'port') {
-      const wallH = s.category === 'park' ? 3.2 : 3.8;
+    if (s.category !== 'secret_base' && s.category !== 'port' && s.id !== 'H09' && s.id !== 'H22') {
+      const wallH = s.category === 'park' ? 3.2 : 4.2;
       const wall = new THREE.Mesh(
-        new THREE.BoxGeometry(s.radiusX * 1.92, wallH, s.radiusZ * 1.92),
+        new THREE.BoxGeometry(s.radiusX * 1.96, wallH, s.radiusZ * 1.96),
         i % 2 === 0 ? ishigakiMat : rubbleWallMat
       );
       wall.position.y = -wallH * 0.5 - 0.06;
@@ -73,25 +74,27 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
       siteGrp.add(wall);
     }
 
-    // Subtle mossy corner boundary stones + 1 weathered wooden survey stake per planned plot
-    const hx = s.radiusX * 0.82;
-    const hz = s.radiusZ * 0.82;
-    for (const [cx, cz] of [[-hx, -hz], [hx, -hz], [-hx, hz], [hx, hz]]) {
-      const stone = new THREE.Mesh(cornerStoneGeo, concreteMat);
-      stone.position.set(cx, 0.14, cz);
-      stone.receiveShadow = true;
-      siteGrp.add(stone);
-    }
+    // Only place temporary corner boundary stones & survey stake on unbuilt planned plots
+    if (!isBuilt) {
+      const hx = s.radiusX * 0.82;
+      const hz = s.radiusZ * 0.82;
+      for (const [cx, cz] of [[-hx, -hz], [hx, -hz], [-hx, hz], [hx, hz]]) {
+        const stone = new THREE.Mesh(cornerStoneGeo, concreteMat);
+        stone.position.set(cx, 0.14, cz);
+        stone.receiveShadow = true;
+        siteGrp.add(stone);
+      }
 
-    const stake = new THREE.Mesh(stakeGeo, woodStakeMat);
-    stake.position.set(0, 0.55, hz + 0.25);
-    stake.castShadow = true;
-    const cap = new THREE.Mesh(
-      new THREE.BoxGeometry(0.22, 0.16, 0.22),
-      new THREE.MeshStandardMaterial({ color: signCapColors[s.category] ?? 0x8b6e52, roughness: 0.85 })
-    );
-    cap.position.set(0, 1.16, hz + 0.25);
-    siteGrp.add(stake, cap);
+      const stake = new THREE.Mesh(stakeGeo, woodStakeMat);
+      stake.position.set(0, 0.55, hz + 0.25);
+      stake.castShadow = true;
+      const cap = new THREE.Mesh(
+        new THREE.BoxGeometry(0.22, 0.16, 0.22),
+        new THREE.MeshStandardMaterial({ color: signCapColors[s.category] ?? 0x8b6e52, roughness: 0.85 })
+      );
+      cap.position.set(0, 1.16, hz + 0.25);
+      siteGrp.add(stake, cap);
+    }
 
     group.add(siteGrp);
   }

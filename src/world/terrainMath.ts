@@ -316,36 +316,62 @@ export const PLANNED_SITES: PlannedSite[] = [
   { id: 'PORT01', name: '秘境の旧港（建設案）',           category: 'port',        x: -522, z: -1768, y:   2.8, radiusX: 14.0, radiusZ:  4.8, yaw:  Math.PI * 0.25, blendMargin: 4.5, note: 'けもの道を抜けた先の北西天然入江港' },
 
   // --- Lower Hillside Road Houses (H01–H08: Y = 222m..242m) ---
-  { id: 'H01', name: '民家予定地 01（浜田家）',   category: 'house', x:   38, z:  448, y: 232.0, radiusX: 6.5, radiusZ: 5.5, yaw:  0.65, blendMargin: 12.0, note: '下段斜面・交差点下テラス' },
-  { id: 'H02', name: '民家予定地 02（磯部家）',   category: 'house', x:  -22, z:  395, y: 226.0, radiusX: 6.0, radiusZ: 5.5, yaw:  0.80, blendMargin: 12.0, note: '下段斜面・二階建て予定地' },
-  { id: 'H03', name: '民家予定地 03（高木家）',   category: 'house', x:  -68, z:  342, y: 224.0, radiusX: 7.2, radiusZ: 6.0, yaw:  0.55, blendMargin: 12.5, note: '下段斜面・L字工房予定地' },
-  { id: 'H04', name: '民家予定地 04（岩崎家）',   category: 'house', x: -108, z:  282, y: 228.0, radiusX: 6.5, radiusZ: 5.5, yaw:  1.15, blendMargin: 12.0, note: '下段斜面・石積家屋予定地' },
-  { id: 'H05', name: '民家予定地 05（佐伯家）',   category: 'house', x:  -98, z:  152, y: 235.0, radiusX: 6.0, radiusZ: 5.2, yaw:  1.35, blendMargin: 12.0, note: '公園北側・苔廃家予定地' },
-  { id: 'H06', name: '民家予定地 06（藤原家）',   category: 'house', x: -132, z:   62, y: 226.0, radiusX: 6.2, radiusZ: 5.4, yaw:  1.45, blendMargin: 12.0, note: '沢沿い・半壊家屋予定地' },
-  { id: 'H07', name: '民家予定地 07（安藤家）',   category: 'house', x: -145, z:  -38, y: 228.0, radiusX: 6.6, radiusZ: 5.6, yaw:  1.50, blendMargin: 12.5, note: '西斜面・大工棟梁家予定地' },
-  { id: 'H08', name: '民家予定地 08（永井家）',   category: 'house', x: -130, z: -120, y: 238.0, radiusX: 6.4, radiusZ: 5.4, yaw:  1.25, blendMargin: 12.0, note: '教員宿舎予定地' },
+  { id: 'H01', name: '民家 01（浜田家・二階建町家）',     category: 'house', x:   49, z:  437, y: 233.0, radiusX: 6.8, radiusZ: 5.8, yaw: -0.68, blendMargin: 11.5, note: '下段斜面・交差点下・焼杉いぶし銀本瓦二階家' },
+  { id: 'H02', name: '民家 02（磯部家・三階建櫓家）',     category: 'house', x:  -32, z:  406, y: 226.0, radiusX: 6.2, radiusZ: 5.8, yaw:  2.44, blendMargin: 11.5, note: '下段斜面・石州赤茶釉薬瓦三階見張り櫓家' },
+  { id: 'H03', name: '民家 03（高木家・L字二階工房邸）',  category: 'house', x:  -79, z:  354, y: 224.0, radiusX: 7.6, radiusZ: 6.4, yaw:  2.12, blendMargin: 12.0, note: '下段斜面・L字船大工二階工房（北屋根半崩落）' },
+  { id: 'H04', name: '民家 04（岩崎家・石蔵三階民家）',   category: 'house', x: -108, z:  282, y: 228.0, radiusX: 6.8, radiusZ: 5.8, yaw:  1.25, blendMargin: 12.0, note: '下段斜面・1F野面積石壁＋苔黒瓦寄棟三階家' },
+  { id: 'H05', name: '民家 05（佐伯家・苔蔦二階廃墟）',   category: 'house', x:  -98, z:  152, y: 235.0, radiusX: 6.2, radiusZ: 5.4, yaw:  1.58, blendMargin: 12.0, note: '公園北側・苔と蔦の半壊二階建廃家' },
+  { id: 'H06', name: '民家予定地 06（藤原家）',           category: 'house', x: -132, z:   62, y: 226.0, radiusX: 6.2, radiusZ: 5.4, yaw:  1.45, blendMargin: 12.0, note: '沢沿い・半壊家屋予定地' },
+  { id: 'H07', name: '民家予定地 07（安藤家）',           category: 'house', x: -145, z:  -38, y: 228.0, radiusX: 6.6, radiusZ: 5.6, yaw:  1.50, blendMargin: 12.5, note: '西斜面・大工棟梁家予定地' },
+  { id: 'H08', name: '民家予定地 08（永井家）',           category: 'house', x: -130, z: -120, y: 238.0, radiusX: 6.4, radiusZ: 5.4, yaw:  1.25, blendMargin: 12.0, note: '教員宿舎予定地' },
 
   // --- Middle Main Hillside Road Houses (H09–H18: Y = 246m..268m) ---
-  { id: 'H09', name: '民家予定地 09（森本家・赤屋根）', category: 'house', x:  212, z:  518, y: 266.0, radiusX: 7.4, radiusZ: 6.2, yaw: -2.25, blendMargin: 13.0, note: '見晴らし坂手前・参考写真象徴赤屋根位置' },
-  { id: 'H10', name: '民家予定地 10（白井医院）',       category: 'house', x:  192, z:  422, y: 259.0, radiusX: 7.0, radiusZ: 5.8, yaw: -1.95, blendMargin: 12.5, note: '擬洋風村診療所予定地' },
-  { id: 'H11', name: '民家予定地 11（黒田本家）',       category: 'house', x:  162, z:  348, y: 254.0, radiusX: 8.6, radiusZ: 7.0, yaw: -1.80, blendMargin: 14.0, note: '庄屋・村長屋敷予定地' },
-  { id: 'H12', name: '民家予定地 12（松岡家・白壁2F）', category: 'house', x:   72, z:  262, y: 248.0, radiusX: 6.8, radiusZ: 5.8, yaw: -1.45, blendMargin: 12.5, note: '参考写真中央・白壁二階家位置' },
-  { id: 'H13', name: '民家予定地 13（神谷家）',         category: 'house', x:   82, z:  175, y: 249.0, radiusX: 6.4, radiusZ: 5.6, yaw: -1.65, blendMargin: 12.0, note: '鎮守宮守の家予定地' },
-  { id: 'H14', name: '民家予定地 14（村田家）',         category: 'house', x:   56, z:   88, y: 249.0, radiusX: 6.6, radiusZ: 5.6, yaw: -1.55, blendMargin: 12.0, note: '煉瓦煙突の家予定地' },
-  { id: 'H15', name: '民家予定地 15（吉田家）',         category: 'house', x:   34, z:  -10, y: 252.0, radiusX: 7.2, radiusZ: 6.4, yaw: -1.35, blendMargin: 12.5, note: '増築つぎはぎ二棟家予定地' },
-  { id: 'H16', name: '民家予定地 16（田辺家）',         category: 'house', x:   -4, z:  -92, y: 255.0, radiusX: 6.8, radiusZ: 5.6, yaw: -1.10, blendMargin: 12.5, note: '半地下石倉農家予定地' },
-  { id: 'H17', name: '民家予定地 17（大野家）',         category: 'house', x:  -52, z: -225, y: 260.0, radiusX: 6.0, radiusZ: 5.4, yaw:  0.60, blendMargin: 12.0, note: '蔦に覆われた全壊寸前家予定地' },
-  { id: 'H18', name: '民家予定地 18（杉山家）',         category: 'house', x:  -96, z: -315, y: 266.0, radiusX: 6.2, radiusZ: 5.4, yaw:  0.90, blendMargin: 12.0, note: '木こりの丸太小屋予定地' },
+  { id: 'H09', name: '民家 09（森本家・赤瓦三階名家）',   category: 'house', x:  212, z:  518, y: 266.0, radiusX: 7.6, radiusZ: 6.4, yaw: -0.45, blendMargin: 12.5, note: '見晴らし坂手前・赤瓦入母屋三階建＆見晴らし縁側' },
+  { id: 'H10', name: '民家 10（白井医院・擬洋風三階館）', category: 'house', x:  208, z:  424, y: 260.0, radiusX: 7.2, radiusZ: 6.0, yaw: -1.12, blendMargin: 12.0, note: '明治擬洋風三階木造診療所・いぶし銀本瓦入母屋' },
+  { id: 'H11', name: '民家 11（黒田本家・庄屋四階望楼邸）', category: 'house', x: 162, z: 348, y: 254.0, radiusX: 8.8, radiusZ: 7.2, yaw: -1.18, blendMargin: 13.5, note: '1872年築・四重本瓦入母屋＆四階望楼の庄屋本宅' },
+  { id: 'H12', name: '民家 12（松岡家・白壁瓦二階家）',   category: 'house', x:   72, z:  262, y: 248.0, radiusX: 6.8, radiusZ: 5.8, yaw:  1.85, blendMargin: 12.5, note: '参考写真中央・白漆喰＆濃灰いぶし瓦二階家' },
+  { id: 'H13', name: '民家予定地 13（神谷家）',           category: 'house', x:   82, z:  175, y: 249.0, radiusX: 6.4, radiusZ: 5.6, yaw: -1.65, blendMargin: 12.0, note: '鎮守宮守の家予定地' },
+  { id: 'H14', name: '民家予定地 14（村田家）',           category: 'house', x:   56, z:   88, y: 249.0, radiusX: 6.6, radiusZ: 5.6, yaw: -1.55, blendMargin: 12.0, note: '煉瓦煙突の家予定地' },
+  { id: 'H15', name: '民家予定地 15（吉田家）',           category: 'house', x:   34, z:  -10, y: 252.0, radiusX: 7.2, radiusZ: 6.4, yaw: -1.35, blendMargin: 12.5, note: '増築つぎはぎ二棟家予定地' },
+  { id: 'H16', name: '民家予定地 16（田辺家）',           category: 'house', x:   -4, z:  -92, y: 255.0, radiusX: 6.8, radiusZ: 5.6, yaw: -1.10, blendMargin: 12.5, note: '半地下石倉農家予定地' },
+  { id: 'H17', name: '民家予定地 17（大野家）',           category: 'house', x:  -52, z: -225, y: 260.0, radiusX: 6.0, radiusZ: 5.4, yaw:  0.60, blendMargin: 12.0, note: '蔦に覆われた全壊寸前家予定地' },
+  { id: 'H18', name: '民家予定地 18（杉山家）',           category: 'house', x:  -96, z: -315, y: 266.0, radiusX: 6.2, radiusZ: 5.4, yaw:  0.90, blendMargin: 12.0, note: '木こりの丸太小屋予定地' },
 
   // --- Upper Hillside Road Houses (H19–H25: Y = 272m..290m) ---
-  { id: 'H19', name: '民家予定地 19（小川家・懸造り）', category: 'house', x:  282, z:  468, y: 273.0, radiusX: 6.0, radiusZ: 5.8, yaw: -1.75, blendMargin: 12.5, note: '急斜面・懸造り家屋予定地' },
-  { id: 'H20', name: '民家予定地 20（明治技師館）',     category: 'house', x:  280, z:  340, y: 275.0, radiusX: 7.4, radiusZ: 6.2, yaw: -1.65, blendMargin: 13.0, note: '高台展望・洋館社宅予定地' },
-  { id: 'H21', name: '民家予定地 21（第一坑夫長屋）',   category: 'house', x:  262, z:  215, y: 277.0, radiusX: 10.0, radiusZ: 5.2, yaw: -1.60, blendMargin: 13.5, note: '三戸連棟炭住長屋予定地' },
-  { id: 'H22', name: '民家予定地 22（黒岩監督邸）',     category: 'house', x:  246, z:   95, y: 279.0, radiusX: 7.0, radiusZ: 6.0, yaw: -1.65, blendMargin: 13.0, note: '高石垣の監督官邸予定地' },
-  { id: 'H23', name: '民家予定地 23（鉄山鍛冶場）',     category: 'house', x:  232, z:  -45, y: 281.0, radiusX: 7.0, radiusZ: 5.4, yaw: -1.70, blendMargin: 12.5, note: '鍛冶屋仕事場兼住居予定地' },
-  { id: 'H24', name: '民家予定地 24（炭鉱詰所）',       category: 'house', x:  222, z: -175, y: 285.0, radiusX: 7.0, radiusZ: 5.4, yaw: -1.80, blendMargin: 12.5, note: '詰所兼独身寮予定地' },
-  { id: 'H25', name: '民家予定地 25（沢田小屋）',       category: 'house', x:  142, z: -362, y: 288.0, radiusX: 5.8, radiusZ: 5.2, yaw: -2.15, blendMargin: 12.0, note: '落石崩壊小屋・獣道入口近く' },
+  { id: 'H19', name: '民家予定地 19（小川家・懸造り）',   category: 'house', x:  282, z:  468, y: 273.0, radiusX: 6.0, radiusZ: 5.8, yaw: -1.75, blendMargin: 12.5, note: '急斜面・懸造り家屋予定地' },
+  { id: 'H20', name: '民家予定地 20（明治技師館）',       category: 'house', x:  280, z:  340, y: 275.0, radiusX: 7.4, radiusZ: 6.2, yaw: -1.65, blendMargin: 13.0, note: '高台展望・洋館社宅予定地' },
+  { id: 'H21', name: '民家予定地 21（第一坑夫長屋）',     category: 'house', x:  262, z:  215, y: 277.0, radiusX: 10.0, radiusZ: 5.2, yaw: -1.60, blendMargin: 13.5, note: '三戸連棟炭住長屋予定地' },
+  { id: 'H22', name: '民家 22（黒岩監督邸・懸造り四階館）', category: 'house', x: 246, z: 95, y: 279.0, radiusX: 7.4, radiusZ: 6.4, yaw: -1.48, blendMargin: 13.0, note: '高石垣＆懸造り木柱脚・重層瓦屋根の四階監督官邸' },
+  { id: 'H23', name: '民家予定地 23（鉄山鍛冶場）',       category: 'house', x:  232, z:  -45, y: 281.0, radiusX: 7.0, radiusZ: 5.4, yaw: -1.70, blendMargin: 12.5, note: '鍛冶屋仕事場兼住居予定地' },
+  { id: 'H24', name: '民家予定地 24（炭鉱詰所）',         category: 'house', x:  222, z: -175, y: 285.0, radiusX: 7.0, radiusZ: 5.4, yaw: -1.80, blendMargin: 12.5, note: '詰所兼独身寮予定地' },
+  { id: 'H25', name: '民家予定地 25（沢田小屋）',         category: 'house', x:  142, z: -362, y: 288.0, radiusX: 5.8, radiusZ: 5.2, yaw: -2.15, blendMargin: 12.0, note: '落石崩壊小屋・獣道入口近く' },
 ];
+
+/** The 10 individually hand-crafted 2F–4F wooden detached houses completed in Phase 2 */
+export const BUILT_HOUSE_IDS = new Set<string>([
+  'H01', 'H02', 'H03', 'H04', 'H05', 'H09', 'H10', 'H11', 'H12', 'H22',
+]);
+
+const BUILT_HOUSE_SITES: PlannedSite[] = PLANNED_SITES.filter((s) => BUILT_HOUSE_IDS.has(s.id));
+
+/** Fast check whether world (x, z) lies within any constructed house's interior footprint */
+export function isInsideBuiltHouseFootprint(x: number, z: number, pad = 0.0): boolean {
+  for (let i = 0; i < BUILT_HOUSE_SITES.length; i++) {
+    const s = BUILT_HOUSE_SITES[i];
+    const dx = x - s.x;
+    const dz = z - s.z;
+    const maxR = Math.max(s.radiusX, s.radiusZ) + pad + 1.5;
+    if (dx * dx + dz * dz > maxR * maxR) continue;
+    const c = Math.cos(s.yaw);
+    const sn = Math.sin(s.yaw);
+    const lx = dx * c - dz * sn;
+    const lz = dx * sn + dz * c;
+    if (Math.abs(lx) < s.radiusX * 0.94 + pad && Math.abs(lz) < s.radiusZ * 0.94 + pad) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // ============================================================================
 // SPATIAL HASH ACCELERATOR (128m CELLS) FOR 20x FASTER STREAMING CHUNK BUILDS
@@ -665,6 +691,63 @@ function drapePathOntoMountain(
         for (let cx = minCX; cx <= maxCX; cx++) {
           cellPaths[cellIndex(cx, cz)].push(seg);
         }
+      }
+    }
+  }
+
+  // Grade smooth walkable front-yard approach paths (玄関アプローチ) from each built house to its village road!
+  for (const s of PLANNED_SITES) {
+    if (!BUILT_HOUSE_IDS.has(s.id) || s.id === 'H09') continue;
+    let bestD = Infinity;
+    let rx = s.x;
+    let rz = s.z;
+    let ry = s.y;
+    for (const path of GRADED_PATHS) {
+      if (path.kind !== 'road') continue;
+      for (let i = 0; i < path.points.length - 1; i++) {
+        const [x0, z0, y0] = path.points[i];
+        const [x1, z1, y1] = path.points[i + 1];
+        const dx = x1 - x0;
+        const dz = z1 - z0;
+        const t = clamp(((s.x - x0) * dx + (s.z - z0) * dz) / (dx * dx + dz * dz || 1), 0, 1);
+        const px = x0 + t * dx;
+        const pz = z0 + t * dz;
+        const py = y0 + t * (y1 - y0);
+        const d = Math.hypot(s.x - px, s.z - pz);
+        if (d < bestD) {
+          bestD = d;
+          rx = px;
+          rz = pz;
+          ry = py;
+        }
+      }
+    }
+    const startDist = s.id === 'H09' ? 7.35 : Math.max(4.6, s.radiusZ - 0.8);
+    if (bestD <= startDist + 1.0) continue;
+    const sn = Math.sin(s.yaw);
+    const cs = Math.cos(s.yaw);
+    const ax = s.x + sn * startDist;
+    const az = s.z + cs * startDist;
+    const ay = s.id === 'H09' ? s.y - 1.65 : s.y;
+    const dx = rx - ax;
+    const dz = rz - az;
+    const hw = s.id === 'H09' ? 2.0 : 2.6;
+    const bw = s.id === 'H09' ? 5.5 : 10.5;
+    const seg: PathSegment = {
+      ax, az, ay, bx: rx, bz: rz, by: ry, dx, dz,
+      len2: dx * dx + dz * dz || 1,
+      halfWidth: hw,
+      blendWidth: bw,
+      kind: 'trail',
+    };
+    const pad = hw + bw + 4;
+    const minCX = worldToCell(Math.min(ax, rx) - pad, TERRAIN_EXTENT_X, ACCEL_NX - 1);
+    const maxCX = worldToCell(Math.max(ax, rx) + pad, TERRAIN_EXTENT_X, ACCEL_NX - 1);
+    const minCZ = worldToCell(Math.min(az, rz) - pad, TERRAIN_EXTENT_Z, ACCEL_NZ - 1);
+    const maxCZ = worldToCell(Math.max(az, rz) + pad, TERRAIN_EXTENT_Z, ACCEL_NZ - 1);
+    for (let cz = minCZ; cz <= maxCZ; cz++) {
+      for (let cx = minCX; cx <= maxCX; cx++) {
+        cellPaths[cellIndex(cx, cz)].push(seg);
       }
     }
   }

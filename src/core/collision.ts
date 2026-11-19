@@ -44,21 +44,21 @@ export class WorldCollision {
     return this.structures;
   }
 
-  /** Transform world point into structure's local space */
+  /** Transform world point into structure's local space (exact inverse of Three.js rotation.y = s.yaw) */
   private worldToLocal(s: BuiltStructure, wx: number, wy: number, wz: number): [number, number, number] {
     const dx = wx - s.position.x;
     const dy = wy - s.position.y;
     const dz = wz - s.position.z;
-    const c = Math.cos(-s.yaw);
-    const sn = Math.sin(-s.yaw);
+    const c = Math.cos(s.yaw);
+    const sn = Math.sin(s.yaw);
     return [dx * c - dz * sn, dy, dx * sn + dz * c];
   }
 
-  /** Transform local horizontal push delta back to world XZ */
+  /** Transform local horizontal push delta back to world XZ (matches Three.js rotation.y = s.yaw) */
   private localDeltaToWorld(s: BuiltStructure, dlx: number, dlz: number): [number, number] {
     const c = Math.cos(s.yaw);
     const sn = Math.sin(s.yaw);
-    return [dlx * c - dlz * sn, dlx * sn + dlz * c];
+    return [dlx * c + dlz * sn, -dlx * sn + dlz * c];
   }
 
   private isInsideLocalBox(b: LocalBoxCollider, lx: number, ly: number, lz: number): boolean {
