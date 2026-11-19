@@ -1,4 +1,5 @@
 node_modules/
-dist/
+dist/*
+!dist/assets/
 .DS_Store
 *.log

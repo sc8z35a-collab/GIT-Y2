@@ -44,7 +44,11 @@ export class TextureCatalog {
 
     let base = this.baseTextures.get(tileName);
     if (!base) {
-      base = this.loader.load(`./textures/tiles/${tileName}.webp`);
+      const baseDir =
+        (typeof window !== 'undefined' &&
+          (window as unknown as { __KUROISO_TEXTURE_BASE__?: string }).__KUROISO_TEXTURE_BASE__) ||
+        './textures/tiles';
+      base = this.loader.load(`${baseDir}/${tileName}.webp`);
       base.colorSpace = THREE.SRGBColorSpace;
       base.wrapS = THREE.RepeatWrapping;
       base.wrapT = THREE.RepeatWrapping;
