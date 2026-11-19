@@ -9,6 +9,7 @@ import { buildHouse03Takagi } from './house03_takagi';
 import { buildHouse04Iwasaki } from './house04_iwasaki';
 import { buildHouse05Saeki } from './house05_saeki';
 import { buildHouse07Ando } from './house07_ando';
+import { buildHouse08Nagai } from './house08_nagai';
 import { buildHouse09Morimoto } from './house09_morimoto';
 import { buildHouse10Shirai } from './house10_shirai';
 import { buildHouse11Kuroda } from './house11_kuroda';
@@ -16,10 +17,13 @@ import { buildHouse12Matsuoka } from './house12_matsuoka';
 import { buildHouse13Kamiya } from './house13_kamiya';
 import { buildHouse14Murata } from './house14_murata';
 import { buildHouse15Yoshida } from './house15_yoshida';
+import { buildHouse16Tanabe } from './house16_tanabe';
+import { buildHouse19Ogawa } from './house19_ogawa';
 import { buildHouse20Engineer } from './house20_engineer';
 import { buildHouse21Rowhouse } from './house21_rowhouse';
 import { buildHouse22Kuroiwa } from './house22_kuroiwa';
 import { buildHouse23Smith } from './house23_smith';
+import { buildHouse24Dormitory } from './house24_dormitory';
 
 export interface HouseStreamStats {
   totalHouses: number;
@@ -48,6 +52,7 @@ const HOUSE_BUILDERS: ReadonlyArray<{
   { id: 'H04', build: buildHouse04Iwasaki },
   { id: 'H05', build: buildHouse05Saeki },
   { id: 'H07', build: buildHouse07Ando },
+  { id: 'H08', build: buildHouse08Nagai },
   { id: 'H09', build: buildHouse09Morimoto },
   { id: 'H10', build: buildHouse10Shirai },
   { id: 'H11', build: buildHouse11Kuroda },
@@ -55,14 +60,17 @@ const HOUSE_BUILDERS: ReadonlyArray<{
   { id: 'H13', build: buildHouse13Kamiya },
   { id: 'H14', build: buildHouse14Murata },
   { id: 'H15', build: buildHouse15Yoshida },
+  { id: 'H16', build: buildHouse16Tanabe },
+  { id: 'H19', build: buildHouse19Ogawa },
   { id: 'H20', build: buildHouse20Engineer },
   { id: 'H21', build: buildHouse21Rowhouse },
   { id: 'H22', build: buildHouse22Kuroiwa },
   { id: 'H23', build: buildHouse23Smith },
+  { id: 'H24', build: buildHouse24Dormitory },
 ];
 
 /**
- * Assembles all 17 individually hand-crafted 2F–4F traditional Meiji-era wooden houses
+ * Assembles all 21 individually hand-crafted 2F–4F traditional Meiji-era wooden houses
  * with 3D kawara roofs and full multi-floor enterable interiors, plus distance-based
  * interior/exterior visibility culling for smooth mobile 120 FPS performance.
  */
@@ -73,7 +81,7 @@ export function buildAllHouses(catalog: TextureCatalog): HouseSystem {
   }
 
   const group = new THREE.Group();
-  group.name = 'kuroiso_houses_phase4';
+  group.name = 'kuroiso_houses_phase5';
 
   const structures: BuiltStructure[] = [];
   const byId = new Map<string, BuiltStructure>();
