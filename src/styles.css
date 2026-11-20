@@ -475,7 +475,7 @@ body {
 
 /* Settings Panel */
 .settings-panel {
-  width: min(460px, 92vw);
+  width: min(520px, 94vw);
 }
 
 .settings-body {

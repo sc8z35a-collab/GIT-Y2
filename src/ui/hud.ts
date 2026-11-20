@@ -1,4 +1,4 @@
-import { GraphicsSettings, ResolutionPreset, FpsLimitMode, BuiltStructure } from '../core/types';
+import { GraphicsSettings, ResolutionPreset, FpsLimitMode, ShadowFlameMode, BuiltStructure } from '../core/types';
 import {
   TERRAIN_EXTENT_X,
   TERRAIN_EXTENT_Z,
@@ -33,6 +33,8 @@ export interface HudFrameMetrics {
   frameMs: number;
   renderWidth: number;
   renderHeight: number;
+  khdr: boolean;
+  shadowFlame: ShadowFlameMode;
   terrain: TerrainStreamStats;
   foliage: FoliageStreamStats;
   houses: HouseStreamStats;
@@ -376,12 +378,41 @@ export class GameHUD {
               </div>
             </div>
 
-            <div class="settings-note">
-              <strong>3km×6km（18km²）超リアル火山地形＋5段階LOD＆全${totalBuiltCount}拠点稼働中</strong><br/>
-              ・5段階マルチLOD地形チャンク（1,152区画を毎フレーム4.2ms予算で動的ロード・12バイオーム地層PBR＆微細凹凸法線）<br/>
-              ・4階層高密度森林（32種・4〜15枝の自然樹木を区画3ドローコールへ静的GPU統合＋距離影制御）<br/>
-              ・完全手作業 民家全${builtHouseCount}軒＋商業${builtShopCount}軒＋秘境旧港＋1890年炭鉱地下坑道(135m)＋駐在所＋村営公園＋秘密基地（全${totalBuiltCount}/32拠点完遂）<br/>
-              ・11本の全縦走獣道・村道（北カルデラ外輪山・東観音断崖・西屏風大展望台・黒磯岳865m主峰へすべて徒歩到達可）。
+            <div>
+              <div class="setting-group-label">
+                <span>KHDR（独自強化 16bit 線形 HDR エンジン）</span>
+                <span id="settings-khdr-readout">${this.settings.khdr ? 'KHDR ON' : 'KHDR OFF'}</span>
+              </div>
+              <div class="segmented two-col" id="khdr-group">
+                <button class="seg-btn ${this.settings.khdr ? 'selected' : ''}" data-khdr="on">
+                  KHDR ON<span>K-LHE局所輝度・光学ブルーム・K-Filmic</span>
+                </button>
+                <button class="seg-btn ${!this.settings.khdr ? 'selected' : ''}" data-khdr="off">
+                  KHDR OFF<span>標準 ACES・最軽量フォワード描画</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div class="setting-group-label">
+                <span>Shadow Flame 1.0（独自リアル影エンジン）</span>
+                <span id="settings-sf-readout">${this.settings.shadowFlame === 'pro' ? '1.0 Pro' : '1.0 Flash'}</span>
+              </div>
+              <div class="segmented two-col" id="sf-group">
+                <button class="seg-btn ${this.settings.shadowFlame === 'flash' ? 'selected' : ''}" data-sf="flash">
+                  Shadow Flame 1.0 Flash<span>超軽量Vogel-6＋青ノイズ回転＋空色反射影</span>
+                </button>
+                <button class="seg-btn ${this.settings.shadowFlame === 'pro' ? 'selected' : ''}" data-sf="pro">
+                  Shadow Flame 1.0 Pro<span>デュアルカスケード＋PCSS硬化＋微細接地影</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-note" id="settings-engine-note">
+              <strong>KHDR ${this.settings.khdr ? 'ON' : 'OFF'} × Shadow Flame ${this.settings.shadowFlame === 'pro' ? '1.0 Pro' : '1.0 Flash'} 稼働中</strong><br/>
+              ・<strong>KHDR</strong>: RGBA16F 線形HDR＋Karis加重Dual-Kawase光学ブルーム＋K-LHE局所明暗平衡＋K-Clarity微細鮮鋭化＋AgX着想K-Filmic v1色相保持カーブ<br/>
+              ・<strong>Shadow Flame 1.0 Flash</strong>: 1536² テンポラルキャッシュ・6タップIGN回転Vogelディスク（標準比-44%画素/-33%フェッチ）＋天空青散乱影<br/>
+              ・<strong>Shadow Flame 1.0 Pro</strong>: 近景±50m(4.8cm/texel)＋遠景±245mデュアルカスケード・8探索+16可変PCSS物理接触硬化・画面空間MicroContact微細影・山岳遠景セルフシャドウ
             </div>
           </div>
         </div>
@@ -552,10 +583,27 @@ export class GameHUD {
       btn.addEventListener('click', () => {
         const fps = (btn as HTMLElement).dataset.fps as FpsLimitMode;
         this.settings.fpsLimit = fps;
-        this.root.querySelectorAll('#fps-group .seg-btn').forEach((b) => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        const ro = this.root.querySelector('#settings-fps-readout');
-        if (ro) ro.textContent = fps === '120' ? '120 FPS' : '無制限';
+        this.syncGraphicsUI(this.settings);
+        this.callbacks.onGraphicsChange({ ...this.settings });
+      });
+    });
+
+    // KHDR ON/OFF toggle buttons
+    this.root.querySelectorAll('#khdr-group .seg-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const on = (btn as HTMLElement).dataset.khdr === 'on';
+        this.settings.khdr = on;
+        this.syncGraphicsUI(this.settings);
+        this.callbacks.onGraphicsChange({ ...this.settings });
+      });
+    });
+
+    // Shadow Flame 1.0 Flash / Pro selector buttons
+    this.root.querySelectorAll('#sf-group .seg-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sf = ((btn as HTMLElement).dataset.sf === 'pro' ? 'pro' : 'flash') as ShadowFlameMode;
+        this.settings.shadowFlame = sf;
+        this.syncGraphicsUI(this.settings);
         this.callbacks.onGraphicsChange({ ...this.settings });
       });
     });
@@ -903,6 +951,38 @@ export class GameHUD {
     ctx.restore();
   }
 
+  public syncGraphicsUI(next: GraphicsSettings): void {
+    this.settings = { ...next };
+    this.root.querySelectorAll('#res-group .seg-btn').forEach((b) => {
+      b.classList.toggle('selected', (b as HTMLElement).dataset.res === next.resolution);
+    });
+    this.root.querySelectorAll('#fps-group .seg-btn').forEach((b) => {
+      b.classList.toggle('selected', (b as HTMLElement).dataset.fps === next.fpsLimit);
+    });
+    this.root.querySelectorAll('#khdr-group .seg-btn').forEach((b) => {
+      b.classList.toggle('selected', ((b as HTMLElement).dataset.khdr === 'on') === next.khdr);
+    });
+    this.root.querySelectorAll('#sf-group .seg-btn').forEach((b) => {
+      b.classList.toggle('selected', (b as HTMLElement).dataset.sf === next.shadowFlame);
+    });
+    const resRo = this.root.querySelector('#settings-res-readout');
+    if (resRo) resRo.textContent = next.resolution;
+    const fpsRo = this.root.querySelector('#settings-fps-readout');
+    if (fpsRo) fpsRo.textContent = next.fpsLimit === '120' ? '120 FPS' : '無制限';
+    const khdrRo = this.root.querySelector('#settings-khdr-readout');
+    if (khdrRo) khdrRo.textContent = next.khdr ? 'KHDR ON' : 'KHDR OFF';
+    const sfRo = this.root.querySelector('#settings-sf-readout');
+    if (sfRo) sfRo.textContent = next.shadowFlame === 'pro' ? '1.0 Pro' : '1.0 Flash';
+    const note = this.root.querySelector('#settings-engine-note');
+    if (note) {
+      note.innerHTML =
+        `<strong>KHDR ${next.khdr ? 'ON' : 'OFF'} × Shadow Flame ${next.shadowFlame === 'pro' ? '1.0 Pro' : '1.0 Flash'} 稼働中</strong><br/>` +
+        `・<strong>KHDR</strong>: RGBA16F 線形HDR＋Karis加重Dual-Kawase光学ブルーム＋K-LHE局所明暗平衡＋K-Clarity微細鮮鋭化＋AgX着想K-Filmic v1色相保持カーブ<br/>` +
+        `・<strong>Shadow Flame 1.0 Flash</strong>: 1536² テンポラルキャッシュ・6タップIGN回転Vogelディスク（標準比-44%画素/-33%フェッチ）＋天空青散乱影<br/>` +
+        `・<strong>Shadow Flame 1.0 Pro</strong>: 近景±50m(4.8cm/texel)＋遠景±245mデュアルカスケード・8探索+16可変PCSS物理接触硬化・画面空間MicroContact微細影・山岳遠景セルフシャドウ`;
+    }
+  }
+
   public update(metrics: HudFrameMetrics, nowMs: number): void {
     if (nowMs - this.lastUiSync < 140) return;
     this.lastUiSync = nowMs;
@@ -1001,8 +1081,10 @@ export class GameHUD {
     this.compassEl.textContent = getCompassText(this.controller.yaw);
 
     const triK = (metrics.terrain.approxTriangles / 1000).toFixed(0);
+    const khdrTag = metrics.khdr ? 'KHDR ON' : 'KHDR OFF';
+    const sfTag = metrics.shadowFlame === 'pro' ? 'SF 1.0 Pro' : 'SF 1.0 Flash';
     this.telemetryEl.innerHTML =
-      `<strong>${metrics.fps.toFixed(0)} FPS</strong> · ${metrics.frameMs.toFixed(1)}ms · ${metrics.renderWidth}×${metrics.renderHeight}<br/>` +
+      `<strong>${metrics.fps.toFixed(0)} FPS</strong> · ${metrics.frameMs.toFixed(1)}ms · ${metrics.renderWidth}×${metrics.renderHeight} · <strong>${khdrTag}</strong> · <strong>${sfTag}</strong><br/>` +
       `地形 ${metrics.terrain.activeChunks}ch (${triK}k△) · 木${metrics.foliage.visibleTrees} / 建築${metrics.houses.visibleHouses}(内装${metrics.houses.visibleInteriors})`;
 
     if (this.mapOpen) {

@@ -59,10 +59,13 @@ export interface BuiltStructure {
 
 export type ResolutionPreset = 'HD' | 'FHD' | '1.5K';
 export type FpsLimitMode = '120' | 'unlimited';
+export type ShadowFlameMode = 'flash' | 'pro';
 
 export interface GraphicsSettings {
   resolution: ResolutionPreset;
   fpsLimit: FpsLimitMode;
+  khdr: boolean;
+  shadowFlame: ShadowFlameMode;
 }
 
 export interface TerraceSpec {

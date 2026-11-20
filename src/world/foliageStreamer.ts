@@ -691,28 +691,35 @@ export class FoliageStreamer {
       }
     }
 
+    const shadowMeshes: THREE.Mesh[] = [];
     const woodGeo = buildMergedCellGeometry(woodJobs, 1.05);
     if (woodGeo) {
       const m = new THREE.Mesh(woodGeo, this.barkMat);
+      m.castShadow = false;
       m.receiveShadow = true;
       grp.add(m);
+      shadowMeshes.push(m);
     }
 
     const cedarGeo = buildMergedCellGeometry(cedarJobs, 1.00);
     if (cedarGeo) {
       const m = new THREE.Mesh(cedarGeo, this.cedarLeafMat);
+      m.castShadow = false;
       m.receiveShadow = true;
       grp.add(m);
+      shadowMeshes.push(m);
     }
 
     const broadGeo = buildMergedCellGeometry(broadJobs, 1.00);
     if (broadGeo) {
       const m = new THREE.Mesh(broadGeo, this.broadLeafMat);
+      m.castShadow = false;
       m.receiveShadow = true;
       grp.add(m);
+      shadowMeshes.push(m);
     }
 
-    return { group: grp, count: placedTrees, cx, cz };
+    return { group: grp, count: placedTrees, cx, cz, shadowMeshes };
   }
 
   /**
@@ -874,14 +881,35 @@ export class FoliageStreamer {
     });
   }
 
-  /** Dynamically gate real-time tree shadows to cells within <= 125m so sun shadow map stays ultra-fast! */
+  private proShadows = false;
+
+  public setProShadows(enabled: boolean, camX?: number, camZ?: number): void {
+    this.proShadows = enabled;
+    if (camX !== undefined && camZ !== undefined) {
+      this.updateNearShadows(camX, camZ);
+    }
+  }
+
+  /** Dynamically gate real-time tree shadows (Flash: <=120m near cells | Pro: <=195m near + <=265m mid cascade cells!) */
   private updateNearShadows(camX: number, camZ: number): void {
-    const maxShadowDistSq = 126 * 126;
+    const nearDistSq = this.proShadows ? 195 * 195 : 122 * 122;
     for (const entry of this.nearCells.values()) {
       if (!entry.shadowMeshes) continue;
       const dx = (entry.cx + 0.5) * NEAR_CELL - camX;
       const dz = (entry.cz + 0.5) * NEAR_CELL - camZ;
-      const cast = dx * dx + dz * dz <= maxShadowDistSq;
+      const cast = dx * dx + dz * dz <= nearDistSq;
+      for (let i = 0; i < entry.shadowMeshes.length; i++) {
+        if (entry.shadowMeshes[i].castShadow !== cast) {
+          entry.shadowMeshes[i].castShadow = cast;
+        }
+      }
+    }
+    const midDistSq = 265 * 265;
+    for (const entry of this.midCells.values()) {
+      if (!entry.shadowMeshes) continue;
+      const dx = (entry.cx + 0.5) * MID_CELL - camX;
+      const dz = (entry.cz + 0.5) * MID_CELL - camZ;
+      const cast = this.proShadows && dx * dx + dz * dz <= midDistSq;
       for (let i = 0; i < entry.shadowMeshes.length; i++) {
         if (entry.shadowMeshes[i].castShadow !== cast) {
           entry.shadowMeshes[i].castShadow = cast;

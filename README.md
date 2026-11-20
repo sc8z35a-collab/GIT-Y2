@@ -26,6 +26,10 @@
   - **`K01` 黒磯駐在所（交番・1896年築）**: 村入口三叉路の白壁＆いぶし銀本瓦二階建、赤色丸型常夜灯・青ホーロー看板・屋外掲示板・巡回黒自転車置場・1F事務室＆鉄格子保護室・2F官舎＆バルコニー。
   - **`P01` 見晴らし村営公園（1964年整備）**: 苔石垣＆西石門・登って滑れる昭和レトロすべり台・二連ブランコ・3×3×3ジャングルジム・砂場＆シーソー・宝形本瓦東屋・白青タイル水飲み場・入室可能な公園管理小屋兼公衆便所。
   - **`B01` 子供たちの山奥の秘密基地（1980〜1985年）**: 苔巨岩の焚き火広場＆流木門・廃材トタン1F隠れ家（赤ラグ・漫画本棚・宝の地図黒板）・直径1.3mの古杉を抱く登れる2F樹上見張りやぐら！
+- **KHDR（独自強化 16bit 線形 HDR）＆ Shadow Flame 1.0 Flash / Pro 独自シャドウエンジン (`src/core/khdrPipeline.ts`, `src/core/shadowFlame.ts`)**:
+  - **KHDR (ON / OFF 切替)**: RGBA16F 線形HDR・Karis加重 Dual-Kawase 光学ブルーム・K-LHE 局所明暗平衡・K-Clarity 局所マイクロコントラスト・AgX着想色相保持 K-Filmic v1 カーブ＋抗バンディングディザ。
+  - **Shadow Flame 1.0 Flash**: 1536² テンポラルキャッシュ＋6タップ IGN 回転 Vogel ディスク（標準 PCFSoft 比 -44%画素 / -33%フェッチ）＋大気青空散乱影。
+  - **Shadow Flame 1.0 Pro**: 近景±50m（`4.8cm/texel`）＋遠景±245m デュアルカスケード・8探索＋16可変半径 SF-PCSS 物理接触硬化・画面空間 SF-MicroContact 微細接地影・山岳遠景セルフシャドウ・2色間接反射影。
 - **スマホ横画面全画面 UI・解像度（HD / FHD / 1.5K）・120/無制限FPS・3km×6km 精密25m/100m等高線地形図 (`src/ui/hud.ts`, `src/main.ts`)**
 
 ## 設計図ドキュメント
@@ -36,6 +40,7 @@
 - [`docs/05_finale_houses_shops_port_blueprint.md`](docs/05_finale_houses_shops_port_blueprint.md) — 最終4民家・商業施設2軒・秘境旧港 完全設計書
 - [`docs/06_mine_koban_park_secretbase_blueprint.md`](docs/06_mine_koban_park_secretbase_blueprint.md) — 1890年炭鉱地下坑道・駐在所・村営公園・秘密基地 完全設計書
 - [`docs/07_3x6km_hyper_realistic_terrain_plan.md`](docs/07_3x6km_hyper_realistic_terrain_plan.md) — 3km×6km（18km²）超リアル火山・構造地形研究＆実装設計書
+- [`docs/08_khdr_and_shadow_flame_architecture.md`](docs/08_khdr_and_shadow_flame_architecture.md) — KHDR（独自強化HDR）＆ Shadow Flame 1.0 Flash / Pro 独自シャドウ技術設計書
 
 ## 開発・ビルド方法
 ```bash

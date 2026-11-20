@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import './styles.css';
-import { GraphicsSettings, ResolutionPreset } from './core/types';
+import { GraphicsSettings, ResolutionPreset, ShadowFlameMode } from './core/types';
 import { TextureCatalog } from './core/textureCatalog';
 import { WorldCollision } from './core/collision';
+import { installShadowFlameShaders, ShadowFlameSystem } from './core/shadowFlame';
+import { KHDRPipeline } from './core/khdrPipeline';
 import {
   SPAWN_POINT,
   LOOKOUT_POINT,
@@ -23,6 +25,9 @@ import { buildVillageInfrastructure } from './world/villageInfrastructure';
 import { buildAllHouses } from './world/houses';
 import { FirstPersonController } from './player/firstPersonController';
 import { GameHUD } from './ui/hud';
+
+// Install proprietary Shadow Flame 1.0 (Flash & Pro) GLSL kernels globally before any materials compile!
+installShadowFlameShaders();
 
 // Atmospheric sky & aerial-perspective fog calibrated to 3km x 6km Japanese volcanic mountain photography
 const FOG_COLOR = 0xb8d0e4;
@@ -107,10 +112,10 @@ function createSkyDome(sunDir: THREE.Vector3): THREE.Mesh {
           sky = mix(sky, vec3(0.95, 0.97, 0.99), cloudMask);
         }
 
-        // Solar glow & crisp sun disc
+        // Solar glow & crisp HDR sun disc (exceeds 1.0 for KHDR optical corona bloom!)
         float sunDot = max(dot(d, uSunDir), 0.0);
-        sky += vec3(1.0, 0.95, 0.84) * pow(sunDot, 12.0) * 0.24;
-        sky += vec3(1.0, 0.98, 0.92) * smoothstep(0.9985, 0.9996, sunDot) * 1.25;
+        sky += vec3(1.0, 0.95, 0.84) * pow(sunDot, 12.0) * 0.28;
+        sky += vec3(1.0, 0.98, 0.92) * smoothstep(0.9985, 0.9996, sunDot) * 2.2;
 
         // Below horizon blends into ocean mist color
         if (d.y < 0.0) {
@@ -150,10 +155,14 @@ function bootstrap(): void {
   const initialRes = (['HD', 'FHD', '1.5K'].includes(params.get('res') || '')
     ? params.get('res')
     : 'FHD') as ResolutionPreset;
+  const initialKhdr = params.has('khdr') ? params.get('khdr') !== '0' : true;
+  const initialShadow = (params.get('shadow')?.toLowerCase() === 'pro' ? 'pro' : 'flash') as ShadowFlameMode;
 
   const settings: GraphicsSettings = {
     resolution: initialRes,
     fpsLimit: '120',
+    khdr: initialKhdr,
+    shadowFlame: initialShadow,
   };
 
   const canvas = document.getElementById('webgl-canvas') as HTMLCanvasElement;
@@ -182,35 +191,25 @@ function bootstrap(): void {
 
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / Math.max(1, window.innerHeight), 0.25, 22000);
 
-  // 3. Sky Dome & Lighting (sun shadow frustum follows player across 2km x 5km!)
+  // 3. Sky Dome, Hemisphere Fill, Shadow Flame 1.0 Engine (Flash / Pro) & KHDR Linear HDR Pipeline
   const skyDome = createSkyDome(SUN_DIRECTION);
   scene.add(skyDome);
 
   const hemiLight = new THREE.HemisphereLight(0xbce0ff, 0x566b46, 1.08);
   scene.add(hemiLight);
 
-  const sunLight = new THREE.DirectionalLight(0xfff5e2, 2.32);
-  sunLight.castShadow = true;
-  sunLight.shadow.mapSize.set(2048, 2048);
-  sunLight.shadow.camera.near = 20;
-  sunLight.shadow.camera.far = 520;
-  const shadowHalf = 108;
-  sunLight.shadow.camera.left = -shadowHalf;
-  sunLight.shadow.camera.right = shadowHalf;
-  sunLight.shadow.camera.top = shadowHalf;
-  sunLight.shadow.camera.bottom = -shadowHalf;
-  sunLight.shadow.bias = -0.0005;
-  sunLight.shadow.normalBias = 0.04;
-  scene.add(sunLight);
-  scene.add(sunLight.target);
+  const shadowFlame = new ShadowFlameSystem(scene, SUN_DIRECTION, settings.shadowFlame);
+  const sunLight = shadowFlame.sunLight;
+  const khdrPipeline = new KHDRPipeline(renderer, 1280, 720, settings.khdr);
 
   // 4. Shared Texture Catalog (212 WebP tiles strictly from user-provided assets/textures/)
   const catalog = new TextureCatalog(renderer);
 
-  // 5. Dynamic 4-LOD Streaming Terrain, 3-Tier Streaming Forest & Wind Grass, Ocean, Infrastructure & ALL 32 Structures
+  // 5. Dynamic 5-LOD Streaming Terrain, 4-Tier Streaming Forest & Wind Grass, Ocean, Infrastructure & ALL 32 Structures
   const collision = new WorldCollision();
   const terrainStreamer = new TerrainStreamer(catalog);
   const foliageStreamer = new FoliageStreamer(catalog);
+  foliageStreamer.setProShadows(settings.shadowFlame === 'pro');
   const oceanSystem = buildOceanSystem(catalog, SUN_DIRECTION);
   const infrastructure = buildVillageInfrastructure(catalog);
   const houseSystem = buildAllHouses(catalog);
@@ -337,10 +336,11 @@ function bootstrap(): void {
     foliageStreamer.warmStart(controller.position.x, controller.position.z);
     houseSystem.update(controller.position);
     updateSubterraneanAtmosphere(true);
+    shadowFlame.invalidate();
   };
   warmStreamAroundPlayer();
 
-  // 7. Resolution Manager (HD 1280x720 / FHD 1920x1080 / 1.5K 2560x1440)
+  // 7. Resolution Manager (HD 1280x720 / FHD 1920x1080 / 1.5K 2560x1440) + KHDR buffer sync
   let renderWidth = 1280;
   let renderHeight = 720;
 
@@ -362,6 +362,7 @@ function bootstrap(): void {
 
     renderer.setPixelRatio(1);
     renderer.setSize(renderWidth, renderHeight, false);
+    khdrPipeline.setSize(renderWidth, renderHeight);
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
   };
@@ -370,16 +371,32 @@ function bootstrap(): void {
   window.addEventListener('resize', applyResolution);
   window.addEventListener('orientationchange', () => window.setTimeout(applyResolution, 120));
 
-  // 8. HUD & Interactive 2km x 5km Topographic Map
+  const applyGraphicsSettings = (next: GraphicsSettings) => {
+    const resChanged = settings.resolution !== next.resolution;
+    const shadowChanged = settings.shadowFlame !== next.shadowFlame;
+    settings.resolution = next.resolution;
+    settings.fpsLimit = next.fpsLimit;
+    settings.khdr = next.khdr;
+    settings.shadowFlame = next.shadowFlame;
+
+    khdrPipeline.setEnabled(settings.khdr);
+    if (shadowChanged) {
+      shadowFlame.setMode(settings.shadowFlame);
+      foliageStreamer.setProShadows(settings.shadowFlame === 'pro', controller.position.x, controller.position.z);
+    }
+    if (resChanged) {
+      applyResolution();
+    }
+  };
+
+  // 8. HUD & Interactive 3km x 6km Topographic Map
   const hud = new GameHUD(
     hudRoot,
     controller,
     settings,
     {
       onGraphicsChange: (next) => {
-        settings.resolution = next.resolution;
-        settings.fpsLimit = next.fpsLimit;
-        applyResolution();
+        applyGraphicsSettings(next);
       },
       onTeleport: (x, z, yaw, pitch) => {
         controller.teleport(x, z, yaw, pitch);
@@ -393,7 +410,7 @@ function bootstrap(): void {
     houseSystem.structures
   );
 
-  // 9. Main Render Loop with 120 FPS / Unlimited FPS Pacing & Streaming Budgets
+  // 9. Main Render Loop with 120 FPS / Unlimited FPS Pacing, Shadow Flame 1.0 Temporal Caching & KHDR
   let lastRenderTime = performance.now();
   let lastPhysicsTime = lastRenderTime;
   let smoothFrameMs = 16.6;
@@ -401,18 +418,12 @@ function bootstrap(): void {
   let renderedFrames = 0;
   let loopPaused = false;
 
-  const updateSunShadowFollow = () => {
-    // Snap shadow camera center to 2m grid increments to completely eliminate shadow shimmering!
-    const snapX = Math.round(controller.position.x * 0.5) * 2;
-    const snapY = Math.round(controller.position.y * 0.5) * 2;
-    const snapZ = Math.round(controller.position.z * 0.5) * 2;
-    sunLight.target.position.set(snapX, snapY, snapZ);
-    sunLight.position.set(
-      snapX + SUN_DIRECTION.x * 240,
-      snapY + SUN_DIRECTION.y * 240,
-      snapZ + SUN_DIRECTION.z * 240
-    );
-    sunLight.target.updateMatrixWorld();
+  const updateSunShadowFollow = (force = false) => {
+    const tS = terrainStreamer.getStats();
+    const fS = foliageStreamer.getStats();
+    const hS = houseSystem.getStats();
+    const sig = `${tS.activeChunks}:${tS.lod0Count}:${tS.lod1Count}:${fS.nearForestCells}:${fS.midForestCells}:${hS.visibleHouses}:${shadowFlame.getMode()}`;
+    shadowFlame.update(controller.position, sig, force);
   };
 
   const renderSingleFrame = (now: number, forceHud = false) => {
@@ -426,19 +437,19 @@ function bootstrap(): void {
     // Update player first-person movement & collision
     controller.update(physDt);
 
-    // Keep sky dome centered on camera, dynamic sun shadow box locked, and subterranean cave lights tuned!
-    skyDome.position.copy(camera.position);
-    updateSunShadowFollow();
-    updateSubterraneanAtmosphere(forceHud);
-
     // Update ocean waves, strictly budgeted terrain/foliage streaming & house distance culling
     oceanSystem.update(elapsedSec);
     terrainStreamer.update(controller.position.x, controller.position.z, 4.2);
     foliageStreamer.update(controller.position.x, controller.position.z, elapsedSec);
     houseSystem.update(controller.position);
 
-    // Render frame
-    renderer.render(scene, camera);
+    // Keep sky dome centered on camera, Shadow Flame 1.0 cascades synced, and subterranean cave lights tuned!
+    skyDome.position.copy(camera.position);
+    updateSubterraneanAtmosphere(forceHud);
+    updateSunShadowFollow(forceHud);
+
+    // Render frame through KHDR (16-bit Linear HDR + K-LHE + K-Clarity + K-Filmic v1) or baseline forward path
+    khdrPipeline.render(scene, camera, caveLightFactor);
 
     // Consistent FPS / frame-ms telemetry (ignore initial 3 shader-compile warmup frames)
     if (renderedFrames >= 3) {
@@ -453,6 +464,8 @@ function bootstrap(): void {
         frameMs: smoothFrameMs,
         renderWidth,
         renderHeight,
+        khdr: settings.khdr,
+        shadowFlame: settings.shadowFlame,
         terrain: terrainStreamer.getStats(),
         foliage: foliageStreamer.getStats(),
         houses: houseSystem.getStats(),
@@ -479,10 +492,16 @@ function bootstrap(): void {
     renderSingleFrame(now);
   };
 
-  // Expose lightweight debug telemetry for verification scripts
+  // Expose lightweight debug telemetry & live KHDR / Shadow Flame 1.0 A/B toggle for verification scripts
   (window as unknown as Record<string, unknown>).__KUROISO_DEBUG__ = {
     setPaused: (paused: boolean) => {
       loopPaused = paused;
+    },
+    setGraphics: (partial: Partial<GraphicsSettings>) => {
+      const merged: GraphicsSettings = { ...settings, ...partial };
+      applyGraphicsSettings(merged);
+      hud.syncGraphicsUI(merged);
+      updateSunShadowFollow(true);
     },
     renderFrame: () => {
       renderSingleFrame(performance.now(), true);
@@ -491,7 +510,7 @@ function bootstrap(): void {
       controller.teleport(x, z, yaw, pitch, yOverride);
       warmStreamAroundPlayer();
       skyDome.position.copy(camera.position);
-      updateSunShadowFollow();
+      updateSunShadowFollow(true);
     },
     teleportPreset: (key: string, yawOverride?: number, pitchOverride?: number) => {
       const t = presets[key.toLowerCase()];
@@ -499,7 +518,7 @@ function bootstrap(): void {
       controller.teleport(t.x, t.z, yawOverride ?? t.yaw, pitchOverride ?? t.pitch);
       warmStreamAroundPlayer();
       skyDome.position.copy(camera.position);
-      updateSunShadowFollow();
+      updateSunShadowFollow(true);
     },
     teleportHouse: (
       id: string,
@@ -519,7 +538,7 @@ function bootstrap(): void {
       controller.teleport(wx, wz, s.yaw + localYaw, pitch, wy);
       warmStreamAroundPlayer();
       skyDome.position.copy(camera.position);
-      updateSunShadowFollow();
+      updateSunShadowFollow(true);
       return true;
     },
     houses: houseSystem.structures.map((s) => ({
@@ -534,6 +553,8 @@ function bootstrap(): void {
     getStats: () => ({
       pos: controller.position.toArray(),
       inside: controller.insideStructure?.id ?? null,
+      khdr: settings.khdr,
+      shadowFlame: shadowFlame.getStats(),
       terrain: terrainStreamer.getStats(),
       foliage: foliageStreamer.getStats(),
       houses: houseSystem.getStats(),
