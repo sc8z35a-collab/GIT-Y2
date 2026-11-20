@@ -10,7 +10,6 @@ import {
   PARK_POINT,
   SECRET_BASE_POINT,
   MINE_PORTAL_POINT,
-  HIDDEN_PORT_POINT,
   getTerrainHeight,
   getStreamCenterX,
 } from './terrainMath';
@@ -62,7 +61,7 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
     siteGrp.rotation.y = s.yaw;
 
     // Hillside stone retaining embankment (石垣) holding up each terraced plot
-    const bespokeFoundationIds = new Set(['H07', 'H08', 'H09', 'H13', 'H14', 'H15', 'H16', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24']);
+    const bespokeFoundationIds = new Set(['H06', 'H07', 'H08', 'H09', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24', 'H25', 'S01', 'S02', 'PORT01']);
     if (s.category !== 'secret_base' && s.category !== 'port' && !bespokeFoundationIds.has(s.id)) {
       const wallH = s.category === 'park' ? 3.2 : 4.2;
       const wall = new THREE.Mesh(
@@ -243,61 +242,8 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
     group.add(sumGrp);
   }
 
-  // =========================================================================
-  // 6. HIDDEN PORT BEYOND ANIMAL TRAIL (PORT01 秘境の旧港建設案・北西天然入江防波堤基礎)
-  // =========================================================================
-  {
-    const portGrp = new THREE.Group();
-    portGrp.position.set(HIDDEN_PORT_POINT.x, HIDDEN_PORT_POINT.y, HIDDEN_PORT_POINT.z);
-    // Rotate +45deg so local -Z points directly NORTHWEST (-X, -Z) out into the open harbor cove!
-    portGrp.rotation.y = Math.PI * 0.25;
-
-    // Mossy stone quay apron flush with Y=2.8m terrace, dropping cleanly into cove water
-    const quay = new THREE.Mesh(new THREE.BoxGeometry(28.0, 4.2, 10.0), rubbleWallMat);
-    quay.position.set(0, -1.95, 0);
-    quay.receiveShadow = true;
-    quay.castShadow = true;
-
-    // Stone coping curbs & weathered iron mooring bollards along the seawall edge
-    const coping = new THREE.Mesh(new THREE.BoxGeometry(28.2, 0.28, 0.75), concreteMat);
-    coping.position.set(0, 0.24, -4.65);
-    coping.receiveShadow = true;
-    for (const bx of [-10, -3.5, 3.5, 10]) {
-      const bollard = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.55, 8), rustSteelMat);
-      bollard.position.set(bx, 0.58, -4.55);
-      bollard.castShadow = true;
-      portGrp.add(bollard);
-    }
-
-    // Old mossy stone breakwater arm curving out on the southwest (-X) side to shelter the bay
-    const breakwater = new THREE.Mesh(new THREE.BoxGeometry(38.0, 5.2, 4.8), ishigakiMat);
-    breakwater.position.set(-22.0, -2.0, -18.0);
-    breakwater.rotation.y = 0.55;
-    breakwater.castShadow = true;
-    breakwater.receiveShadow = true;
-
-    // Decayed timber pier stringers & pilings jutting out into the calm turquoise water (-Z)
-    for (let p = 0; p < 6; p++) {
-      const pz = -7.5 - p * 3.2;
-      for (const px of [-2.2, 2.2]) {
-        const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.20, 8.6, 7), poleMat);
-        pil.position.set(px, -3.6, pz);
-        pil.castShadow = true;
-        portGrp.add(pil);
-      }
-      if (p < 4) {
-        // Surviving weathered pier deck planks near shore
-        const deck = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.16, 2.8), woodStakeMat);
-        deck.position.set(0, -0.08, pz);
-        deck.rotation.z = (p % 2 === 0 ? 1 : -1) * 0.02;
-        deck.receiveShadow = true;
-        portGrp.add(deck);
-      }
-    }
-
-    portGrp.add(quay, coping, breakwater);
-    group.add(portGrp);
-  }
+  // Section 6 (PORT01 Hidden Port) is now built as a full collidable/enterable BuiltStructure
+  // in src/world/houses/port01_hidden_port.ts (stone quay, 22m walkable pier, boat, lighthouse, 2F warehouse).
 
   // =========================================================================
   // 7. SHOWA WOODEN UTILITY POLES (木製電柱) & SAGGING WIRES ALONG HILLSIDE ROADS

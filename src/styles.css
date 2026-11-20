@@ -187,7 +187,7 @@ body {
   padding: 7px 12px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  max-width: min(360px, 52vw);
+  max-width: min(440px, 56vw);
 }
 
 .hud-zone-name {

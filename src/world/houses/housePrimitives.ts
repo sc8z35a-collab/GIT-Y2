@@ -113,7 +113,7 @@ export interface StructureMeta {
   id: string;
   name: string;
   subtitle: string;
-  category: 'house' | 'commercial' | 'mine';
+  category: 'house' | 'commercial' | 'port' | 'mine';
   builtYear: number;
   abandonedYear: number;
   stories: number;

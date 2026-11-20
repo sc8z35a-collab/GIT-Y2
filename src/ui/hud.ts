@@ -44,20 +44,18 @@ interface QuickLandmark {
   yaw: number;
   pitch?: number;
   isHouse?: boolean;
+  isFacility?: boolean;
 }
 
 const QUICK_LANDMARKS: QuickLandmark[] = [
   { label: '漂着浜（目覚め地点）', elev: '2m', x: SPAWN_POINT.x, z: SPAWN_POINT.z, yaw: SPAWN_POINT.yaw, pitch: 0.04 },
   { label: '見晴らし坂（廃村展望）', elev: '268m', x: LOOKOUT_POINT.x, z: LOOKOUT_POINT.z, yaw: 0.56, pitch: -0.05 },
   { label: '黒磯駐在所・交番予定地 (K01)', elev: '238m', x: KOBAN_POINT.x - 14, z: KOBAN_POINT.z + 10, yaw: -0.45, pitch: -0.02 },
-  { label: 'よろず商店予定地 (S01)', elev: '252m', x: 118, z: 325, yaw: 0.32, pitch: -0.02 },
-  { label: '購買部みなとや予定地 (S02)', elev: '258m', x: -55, z: -158, yaw: 0.4, pitch: -0.03 },
   { label: '見晴らし村営公園 (P01)', elev: '242m', x: PARK_POINT.x + 8, z: PARK_POINT.z + 6, yaw: 0.65, pitch: -0.02 },
   { label: '1890年炭鉱坑口予定地 (M01)', elev: '348m', x: MINE_PORTAL_POINT.x + 8, z: MINE_PORTAL_POINT.z + 24, yaw: 0.12, pitch: 0.05 },
   { label: '子供たちの山奥秘密基地 (B01)', elev: '376m', x: SECRET_BASE_POINT.x - 8, z: SECRET_BASE_POINT.z + 8, yaw: -0.68, pitch: 0.02 },
   { label: '山頂獣道・東尾根中腹', elev: '629m', x: 355, z: -1245, yaw: 0.96, pitch: 0.12 },
   { label: '★ 黒磯岳 主峰山頂', elev: '865m', x: SUMMIT_POINT.x - 4.5, z: SUMMIT_POINT.z - 5.5, yaw: -2.46, pitch: -0.14 },
-  { label: '秘境の旧港・建設案 (PORT01)', elev: '2.8m', x: HIDDEN_PORT_POINT.x + 2.5, z: HIDDEN_PORT_POINT.z + 2.5, yaw: 0.785, pitch: -0.08 },
 ];
 
 const COMPASS_LABELS = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'] as const;
@@ -74,7 +72,7 @@ function classifyZone(x: number, y: number, z: number): string {
     return '黒磯岳 主峰山頂（標高865m）';
   }
   if (Math.hypot(x - HIDDEN_PORT_POINT.x, z - HIDDEN_PORT_POINT.z) < 110) {
-    return '秘境の旧港（建設案・北西入江）';
+    return '旧黒磯秘境港（北西天然入江）';
   }
   if (Math.hypot(x - SECRET_BASE_POINT.x, z - SECRET_BASE_POINT.z) < 65) {
     return '子供たちの山奥の秘密基地 (B01)';
@@ -162,11 +160,11 @@ export class GameHUD {
       window.matchMedia('(pointer: coarse)').matches ||
       (navigator.maxTouchPoints ?? 0) > 0;
 
-    // Build ordered quick-jump targets: landmarks first, then all built 2F-4F kawara houses
+    // Build ordered quick-jump targets: landmarks first, then commercial/port & all 25 built houses
     this.mapQuickPoints.push(...QUICK_LANDMARKS);
     for (let i = 0; i < builtStructures.length; i++) {
       const s = builtStructures[i];
-      const floors = s.stories ? `${s.stories}F` : '2F';
+      const floors = s.category === 'port' ? '旧港·2F' : s.stories ? `${s.stories}F` : '2F';
       this.mapQuickPoints.push({
         label: `[${s.id}] ${s.name}`,
         elev: `${floors} · ${Math.round(s.position.y)}m`,
@@ -174,7 +172,8 @@ export class GameHUD {
         z: s.entryPoint.z,
         yaw: s.entryPoint.lookYaw ?? s.yaw,
         pitch: 0.04,
-        isHouse: true,
+        isHouse: s.category === 'house',
+        isFacility: s.category === 'commercial' || s.category === 'port',
       });
     }
 
@@ -185,10 +184,22 @@ export class GameHUD {
   private renderMarkup(skipIntro: boolean): void {
     const landmarkButtons = this.mapQuickPoints
       .map((lm, idx) => ({ lm, idx }))
-      .filter((e) => !e.lm.isHouse)
+      .filter((e) => !e.lm.isHouse && !e.lm.isFacility)
       .map(
         ({ lm, idx }) => `
         <button class="map-tp-btn" data-tp-idx="${idx}">
+          <span>${lm.label}</span>
+          <span class="map-tp-elev">${lm.elev}</span>
+        </button>`
+      )
+      .join('');
+
+    const facilityButtons = this.mapQuickPoints
+      .map((lm, idx) => ({ lm, idx }))
+      .filter((e) => e.lm.isFacility)
+      .map(
+        ({ lm, idx }) => `
+        <button class="map-tp-btn" style="border-color: rgba(240, 118, 92, 0.55);" data-tp-idx="${idx}">
           <span>${lm.label}</span>
           <span class="map-tp-elev">${lm.elev}</span>
         </button>`
@@ -207,9 +218,11 @@ export class GameHUD {
       )
       .join('');
 
-    const builtCount = this.builtStructures.length;
+    const builtHouseCount = this.builtStructures.filter((s) => s.category === 'house').length;
+    const builtShopCount = this.builtStructures.filter((s) => s.category === 'commercial').length;
+    const builtPortCount = this.builtStructures.filter((s) => s.category === 'port').length;
     const totalPlannedHouses = PLANNED_SITES.filter((s) => s.category === 'house').length;
-    const remainingHouses = Math.max(0, totalPlannedHouses - builtCount);
+    const remainingHouses = Math.max(0, totalPlannedHouses - builtHouseCount);
 
     this.root.innerHTML = `
       <!-- Portrait orientation suggestion -->
@@ -229,10 +242,10 @@ export class GameHUD {
       <div class="wakeup-overlay ${skipIntro ? 'hidden' : ''}" id="wakeup-overlay">
         <div class="wakeup-card">
           <div class="wakeup-eyebrow">KUROISO-JIMA 1985 — 2KM × 5KM ISOLATED MOUNTAIN ISLAND</div>
-          <h1 class="wakeup-title">黒磯島 — 1985年廃村探索（伝統瓦木造民家 ${builtCount}軒公開）</h1>
+          <h1 class="wakeup-title">黒磯島 — 1985年廃村探索（全${builtHouseCount}棟民家・商業${builtShopCount}軒・秘境旧港 公開）</h1>
           <p class="wakeup-story">
             冷たい砂と波音の中で目を覚ました。あたり一面は見渡す限りの外洋、救助は来ない。<br/>
-            山の斜面（標高約254m）に建ち並ぶ<strong>明治築・2〜4階建て伝統瓦の木造民家${builtCount}軒</strong>はすべて内部探索と階段昇降が可能。32種の高密度原生林を抜けた獣道の先には<strong>標高865mの黒磯岳山頂</strong>と<strong>秘境の旧港</strong>が広がっている。
+            山の斜面（標高約254m）に建ち並ぶ<strong>明治築・伝統瓦木造民家全${builtHouseCount}軒</strong>と<strong>商業施設${builtShopCount}軒（よろず商店・食堂みなとや）</strong>はすべて内部探索と階段昇降が可能。32種の高密度原生林を抜けた獣道の先には<strong>標高865mの黒磯岳山頂</strong>と、桟橋・石灯台・海運倉庫を備えた<strong>秘境の旧港</strong>が広がっている。
           </p>
           <div class="wakeup-actions">
             <button class="btn-primary" id="btn-wake-start">立ち上がって探索を始める</button>
@@ -331,11 +344,11 @@ export class GameHUD {
             </div>
 
             <div class="settings-note">
-              <strong>2km×5km ストリーミング＋32樹種高密度森林＆家屋GPUバッチ稼働中</strong><br/>
+              <strong>2km×5km ストリーミング＋32樹種高密度森林＆全建築GPUバッチ稼働中</strong><br/>
               ・4段階マルチLOD地形チャンク（640区画を毎フレーム4.2ms予算で動的ロード＆破棄）<br/>
               ・4階層高密度森林（32種・4〜15枝の自然樹木を区画3ドローコールへ静的GPU統合＋距離影制御）<br/>
-              ・建築済2〜4階建伝統瓦木造民家${builtCount}軒（マテリアル別静的GPU統合＋距離カリング）<br/>
-              ※ 残り${remainingHouses}軒・商業施設2軒・1890年炭鉱内部・KHDR・Shadow Flameは次フェーズにて実装予定。
+              ・完全手作業 伝統瓦木造民家 全${builtHouseCount}軒＋商業施設${builtShopCount}軒＋秘境旧港${builtPortCount}港（全28拠点入室・昇降対応）<br/>
+              ※ ${remainingHouses > 0 ? `残り民家${remainingHouses}軒・` : ''}1890年炭鉱内部（M01）・駐在所（K01）は次フェーズにて拡張可能。
             </div>
           </div>
         </div>
@@ -345,7 +358,7 @@ export class GameHUD {
       <div class="modal-backdrop" id="map-modal">
         <div class="modal-panel map-panel">
           <div class="modal-header">
-            <h2 class="modal-title">黒磯島 2km × 5km 地形図・建築済民家（クリックで現地移動）</h2>
+            <h2 class="modal-title">黒磯島 2km × 5km 地形図・全建築拠点（クリックで現地移動）</h2>
             <button class="modal-close" id="btn-close-map">閉じる (M)</button>
           </div>
           <div class="map-layout">
@@ -353,15 +366,16 @@ export class GameHUD {
               <canvas class="map-canvas" id="topo-map-canvas" width="${this.MAP_W}" height="${this.MAP_H}"></canvas>
             </div>
             <div class="map-sidebar">
-              ${houseButtons ? `<div class="map-sidebar-title">建築済 伝統瓦民家（${builtCount}軒・入室可）</div><div class="map-tp-list" id="map-house-list">${houseButtons}</div>` : ''}
+              ${facilityButtons ? `<div class="map-sidebar-title">商業施設(${builtShopCount})・秘境旧港(${builtPortCount})（入室・登頂可）</div><div class="map-tp-list" id="map-facility-list">${facilityButtons}</div>` : ''}
+              ${houseButtons ? `<div class="map-sidebar-title" style="margin-top:4px;">建築済 伝統瓦民家（全${builtHouseCount}軒・入室可）</div><div class="map-tp-list" id="map-house-list">${houseButtons}</div>` : ''}
               <div class="map-sidebar-title" style="margin-top:4px;">主要拠点・展望スポットへ移動</div>
               <div class="map-tp-list" id="map-tp-list">${landmarkButtons}</div>
               <div class="map-legend">
-                <div class="legend-item"><span class="legend-swatch" style="background:#ffd36e;border:1px solid #2e1f12;"></span>建築済民家(${builtCount})</div>
-                <div class="legend-item"><span class="legend-swatch" style="background:#a87b58;"></span>民家予定地(${remainingHouses})</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#ffd36e;border:1px solid #2e1f12;"></span>建築済民家(${builtHouseCount})</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#f06449;border:1px solid #2e1f12;"></span>商業施設(${builtShopCount})</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#56e0f5;border:1px solid #2e1f12;"></span>秘境旧港(${builtPortCount})</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#f2e7cc;"></span>村道/海岸林道</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#f2a649;"></span>獣道/けもの道</div>
-                <div class="legend-item"><span class="legend-swatch" style="background:#e85b48;"></span>商店(2)/交番(1)</div>
                 <div class="legend-item"><span class="legend-swatch" style="background:#63c778;"></span>公園/秘密基地</div>
               </div>
             </div>
@@ -850,9 +864,12 @@ export class GameHUD {
           if (localY >= elevs[i] - 0.55) floorNum = i + 1;
         }
       }
+      const maxStories = inside.stories ?? elevs?.length ?? 2;
+      floorNum = Math.min(floorNum, maxStories);
       const meijiYear = Math.max(1, inside.builtYear - 1867);
       const shortName = inside.name.split('（')[0];
-      this.zoneEl.textContent = `[${inside.id}] ${shortName} — ${floorNum}F / 全${inside.stories ?? elevs?.length ?? 2}階`;
+      const floorLabel = inside.category === 'port' ? (floorNum >= 2 ? '2F 展望・宿直階' : '1F 岸壁・桟橋・倉庫') : `${floorNum}F/${maxStories}F`;
+      this.zoneEl.textContent = `[${inside.id}] ${shortName} — ${floorLabel}`;
       this.siteHintEl.textContent = `${inside.name} ｜ 明治${meijiYear}年（${inside.builtYear}年）築・${inside.abandonedYear}年廃村`;
       this.siteHintEl.classList.add('visible');
     } else {
@@ -873,7 +890,9 @@ export class GameHUD {
         const built = this.structureById.get(bestSite.id);
         if (built) {
           const stories = built.stories ?? built.floorElevations?.length ?? 2;
-          this.siteHintEl.textContent = `建築済 [${built.id}] ${built.name}（${stories}階建・${built.builtYear}年築）— 入室・階段昇降可`;
+          const kindTag = built.category === 'commercial' ? '商業施設' : built.category === 'port' ? '秘境旧港' : '建築済';
+          const actionHint = built.category === 'port' ? '桟橋歩行・灯台登頂・倉庫入室可' : '入室・階段昇降可';
+          this.siteHintEl.textContent = `${kindTag} [${built.id}] ${built.name}（${stories}階建・${built.builtYear}年築）— ${actionHint}`;
         } else {
           this.siteHintEl.textContent = `造成予定地 [${bestSite.id}] ${bestSite.name}（${bestSite.note}）`;
         }
@@ -889,7 +908,7 @@ export class GameHUD {
     const triK = (metrics.terrain.approxTriangles / 1000).toFixed(0);
     this.telemetryEl.innerHTML =
       `<strong>${metrics.fps.toFixed(0)} FPS</strong> · ${metrics.frameMs.toFixed(1)}ms · ${metrics.renderWidth}×${metrics.renderHeight}<br/>` +
-      `地形 ${metrics.terrain.activeChunks}ch (${triK}k△) · 木${metrics.foliage.visibleTrees} / 民家${metrics.houses.visibleHouses}(内装${metrics.houses.visibleInteriors})`;
+      `地形 ${metrics.terrain.activeChunks}ch (${triK}k△) · 木${metrics.foliage.visibleTrees} / 建築${metrics.houses.visibleHouses}(内装${metrics.houses.visibleInteriors})`;
 
     if (this.mapOpen) {
       this.drawDynamicMapOverlay();
