@@ -1,0 +1,14 @@
+=== Scene: 1.1-calibrated (interior/exterior = 1/10); scene DR p1..p99 = 7.7 EV ===
+  A_global+KFilmic_v2    interior meanY 0.171 (crush  0.0%) | exterior meanY 0.611 (clip  0.0%) | detail in/ex 1.40/0.92 | halo in +11.6% ex  -0.2%
+  B_KHDR1.1(K-LHE v2)    interior meanY 0.090 (crush  0.0%) | exterior meanY 0.469 (clip  0.0%) | detail in/ex 1.46/1.15 | halo in +11.5% ex  -0.0%
+  C_bilateral_grid+v3    interior meanY 0.169 (crush  0.0%) | exterior meanY 0.523 (clip  0.0%) | detail in/ex 1.27/0.82 | halo in  +8.8% ex  +3.6%
+  D_guided_filter+v3     interior meanY 0.169 (crush  0.0%) | exterior meanY 0.528 (clip  0.0%) | detail in/ex 1.27/0.82 | halo in  +6.8% ex  +3.9%
+  E_exposure_fusion+v3   interior meanY 0.169 (crush  0.0%) | exterior meanY 0.499 (clip  7.6%) | detail in/ex 1.18/0.92 | halo in +37.6% ex +37.6%
+  (KHDR1.1 K-Adapt exposure = 2.47; bilateral grid = 12x7x12 cells; grid gather cost ~ 1008 cells x 256 taps at 1/4 res)
+=== Scene: physical (interior/exterior = 1/80); scene DR p1..p99 = 9.2 EV ===
+  A_global+KFilmic_v2    interior meanY 0.096 (crush  0.0%) | exterior meanY 0.906 (clip 45.3%) | detail in/ex 1.32/0.57 | halo in +13.3% ex  -0.1%
+  B_KHDR1.1(K-LHE v2)    interior meanY 0.005 (crush 41.8%) | exterior meanY 0.469 (clip  0.0%) | detail in/ex 1.16/1.18 | halo in +13.0% ex  +0.0%
+  C_bilateral_grid+v3    interior meanY 0.107 (crush  0.0%) | exterior meanY 0.613 (clip  0.0%) | detail in/ex 1.25/0.59 | halo in +11.3% ex  +6.9%
+  D_guided_filter+v3     interior meanY 0.106 (crush  0.0%) | exterior meanY 0.629 (clip  0.0%) | detail in/ex 1.25/0.56 | halo in +11.3% ex  +9.9%
+  E_exposure_fusion+v3   interior meanY 0.151 (crush  0.0%) | exterior meanY 0.809 (clip 43.8%) | detail in/ex 1.15/0.55 | halo in +29.7% ex  +2.7%
+  (KHDR1.1 K-Adapt exposure = 2.47; bilateral grid = 12x7x13 cells; grid gather cost ~ 1092 cells x 256 taps at 1/4 res)

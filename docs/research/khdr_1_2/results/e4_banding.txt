@@ -1,0 +1,12 @@
+=== KFilmic_v2(1.1) (exposure 1.25) ===
+  fp32 (ideal) pre-dither=False  pre-quantization max err  0.00 codes | perceived (16px low-pass) max err  0.46 codes
+  RGBA16F      pre-dither=False  pre-quantization max err  0.04 codes | perceived (16px low-pass) max err  0.44 codes
+  RGBA16F      pre-dither=True   pre-quantization max err  0.08 codes | perceived (16px low-pass) max err  0.46 codes
+  R11G11B10F   pre-dither=False  pre-quantization max err  1.18 codes | perceived (16px low-pass) max err  1.26 codes
+  R11G11B10F   pre-dither=True   pre-quantization max err  2.42 codes | perceived (16px low-pass) max err  0.86 codes
+=== KFilmic_v3 (exposure 0.85) ===
+  fp32 (ideal) pre-dither=False  pre-quantization max err  0.00 codes | perceived (16px low-pass) max err  0.43 codes
+  RGBA16F      pre-dither=False  pre-quantization max err  0.04 codes | perceived (16px low-pass) max err  0.45 codes
+  RGBA16F      pre-dither=True   pre-quantization max err  0.07 codes | perceived (16px low-pass) max err  0.46 codes
+  R11G11B10F   pre-dither=False  pre-quantization max err  1.16 codes | perceived (16px low-pass) max err  1.22 codes
+  R11G11B10F   pre-dither=True   pre-quantization max err  2.43 codes | perceived (16px low-pass) max err  0.96 codes

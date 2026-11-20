@@ -1,0 +1,36 @@
+=== DRAM traffic of the post chain (first-order model, excludes geometry/texture/shadow passes) ===
+KHDR 1.1  @ HD 1280x591         46.5 B/px    35.2 MB/frame  60fps   2.1 GB/s  120fps   4.2 GB/s
+KHDR 1.1  @ FHD 1920x887        46.5 B/px    79.2 MB/frame  60fps   4.8 GB/s  120fps   9.5 GB/s
+KHDR 1.1  @ 1.5K 2560x1182      46.5 B/px   140.7 MB/frame  60fps   8.4 GB/s  120fps  16.9 GB/s
+KHDR 1.1  @ native 2772x1280    46.5 B/px   165.0 MB/frame  60fps   9.9 GB/s  120fps  19.8 GB/s
+KHDR 1.2h internal 0.67 (1857x857)   -> 2772x1280:  178.5 MB/frame  60fps  10.7 GB/s  90fps  16.1 GB/s  120fps  21.4 GB/s
+KHDR 1.2h internal 0.75 (2079x960)   -> 2772x1280:  191.8 MB/frame  60fps  11.5 GB/s  90fps  17.3 GB/s  120fps  23.0 GB/s
+KHDR 1.2h internal 1.0 (native)      -> 2772x1280:  243.0 MB/frame  60fps  14.6 GB/s  90fps  21.9 GB/s  120fps  29.2 GB/s
+
+LPDDR5X peak (4x16-bit): 8533 MT/s -> 68.3 GB/s ; 9600 MT/s -> 76.8 GB/s
+Energy rule of thumb: ~15 pJ/bit end-to-end -> 1 GB/s ~= 0.12 W
+
+=== E9: 24-bit depth (near=0.25, far=22000, standard Z) vs reversed-Z float32 ===
+  z=     1 m: 24-bit step        0.000 mm   reversed-Z F32 step ~   0.0001 mm
+  z=    10 m: 24-bit step        0.024 mm   reversed-Z F32 step ~   0.0012 mm
+  z=    50 m: 24-bit step        0.596 mm   reversed-Z F32 step ~   0.0060 mm
+  z=   100 m: 24-bit step        2.384 mm   reversed-Z F32 step ~   0.0119 mm
+  z=   500 m: 24-bit step       59.604 mm   reversed-Z F32 step ~   0.0596 mm
+  z=  1000 m: 24-bit step      238.416 mm   reversed-Z F32 step ~   0.1192 mm
+  z=  3000 m: 24-bit step     2145.743 mm   reversed-Z F32 step ~   0.3576 mm
+  z=  6000 m: 24-bit step     8582.971 mm   reversed-Z F32 step ~   0.7153 mm
+  z= 12000 m: 24-bit step    34331.885 mm   reversed-Z F32 step ~   1.4305 mm
+  inner/outer ocean planes are 0.70 m apart -> 24-bit z-fight beyond ~1713 m
+
+=== E10: FP16 coverage of physical luminance (scale: 1.0 = 100 cd/m^2, GT7 convention) ===
+  bare sun disc                           1.6e+09 nits ->      1.6e+07  fp16 OVERFLOW(>65504)
+  sunlit snow/cloud                       1.6e+04 nits ->          160  fp16 normal
+  sunlit white plaster (shikkui)          2.2e+04 nits ->          220  fp16 normal
+  clear sky                                  4000 nits ->           40  fp16 normal
+  shaded cedar forest floor                   200 nits ->            2  fp16 normal
+  tatami room daylit                           30 nits ->          0.3  fp16 normal
+  mine: lantern-lit wall                        5 nits ->         0.05  fp16 normal
+  mine: deep unlit rock (lamp spill)         0.02 nits ->       0.0002  fp16 normal
+  moonless night ground                    0.0005 nits ->        5e-06  fp16 subnormal(<6.1e-5)
+  -> with pre-exposure (scale by current exposure on CPU, e.g. x2^-6 outdoors, x2^+6 in the mine) every
+     case except the bare sun lands in the fp16 normal range with 2^-11 relative precision.

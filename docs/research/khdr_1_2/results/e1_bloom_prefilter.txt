@@ -1,0 +1,18 @@
+--- moving bright square 1x1 px (value 50, area-rasterized) ---
+  KHDR1.1 5-tap@1/4 (no Karis)             mean/true  0.798  min/true  0.533  max/true  1.067  flicker (max-min)/mean   66.8%
+  KHDR1.1 5-tap@1/4 (Karis, as shipped)    mean/true  0.156  min/true  0.057  max/true  0.231  flicker (max-min)/mean  111.6%
+  box4 4-tap@1/4 (no Karis)                mean/true  1.000  min/true  1.000  max/true  1.000  flicker (max-min)/mean    0.0%
+  box4 4-tap@1/4 (Karis)                   mean/true  0.140  min/true  0.096  max/true  0.242  flicker (max-min)/mean  104.3%
+  COD 13-tap x2 (Karis on 1st)             mean/true  0.689  min/true  0.635  max/true  0.738  flicker (max-min)/mean   15.0%
+--- moving bright square 2x2 px (value 50, area-rasterized) ---
+  KHDR1.1 5-tap@1/4 (no Karis)             mean/true  0.900  min/true  0.867  max/true  0.933  flicker (max-min)/mean    7.4%
+  KHDR1.1 5-tap@1/4 (Karis, as shipped)    mean/true  0.073  min/true  0.031  max/true  0.085  flicker (max-min)/mean   74.3%
+  box4 4-tap@1/4 (no Karis)                mean/true  1.000  min/true  1.000  max/true  1.000  flicker (max-min)/mean    0.0%
+  box4 4-tap@1/4 (Karis)                   mean/true  0.255  min/true  0.069  max/true  0.546  flicker (max-min)/mean  187.3%
+  COD 13-tap x2 (Karis on 1st)             mean/true  0.642  min/true  0.558  max/true  0.669  flicker (max-min)/mean   17.4%
+--- moving bright square 3x3 px (value 50, area-rasterized) ---
+  KHDR1.1 5-tap@1/4 (no Karis)             mean/true  0.934  min/true  0.889  max/true  0.978  flicker (max-min)/mean    9.5%
+  KHDR1.1 5-tap@1/4 (Karis, as shipped)    mean/true  0.062  min/true  0.040  max/true  0.079  flicker (max-min)/mean   62.2%
+  box4 4-tap@1/4 (no Karis)                mean/true  1.000  min/true  1.000  max/true  1.000  flicker (max-min)/mean    0.0%
+  box4 4-tap@1/4 (Karis)                   mean/true  0.435  min/true  0.082  max/true  0.791  flicker (max-min)/mean  163.1%
+  COD 13-tap x2 (Karis on 1st)             mean/true  0.685  min/true  0.660  max/true  0.703  flicker (max-min)/mean    6.2%

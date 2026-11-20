@@ -41,6 +41,8 @@
 - [`docs/06_mine_koban_park_secretbase_blueprint.md`](docs/06_mine_koban_park_secretbase_blueprint.md) — 1890年炭鉱地下坑道・駐在所・村営公園・秘密基地 完全設計書
 - [`docs/07_3x6km_hyper_realistic_terrain_plan.md`](docs/07_3x6km_hyper_realistic_terrain_plan.md) — 3km×6km（18km²）超リアル火山・構造地形研究＆実装設計書
 - [`docs/08_khdr_and_shadow_flame_architecture.md`](docs/08_khdr_and_shadow_flame_architecture.md) — KHDR（独自強化HDR）＆ Shadow Flame 1.0 Flash / Pro 独自シャドウ技術設計書
+- [`docs/09_khdr_1_1_and_shadow_flame_1_1_research.md`](docs/09_khdr_1_1_and_shadow_flame_1_1_research.md) — KHDR 1.1 ＆ Shadow Flame 1.1 研究レポート
+- [`docs/10_khdr_1_2_hyper_research_plan.md`](docs/10_khdr_1_2_hyper_research_plan.md) — KHDR 1.2 hyper 研究・設計計画書（POCO F7 向け、KHDR 1.3 展望つき。実験コードは [`docs/research/khdr_1_2/`](docs/research/khdr_1_2/)）
 
 ## 開発・ビルド方法
 ```bash
