@@ -113,7 +113,7 @@ export interface StructureMeta {
   id: string;
   name: string;
   subtitle: string;
-  category: 'house' | 'commercial' | 'port' | 'mine';
+  category: 'house' | 'commercial' | 'port' | 'mine' | 'koban' | 'park' | 'secret_base';
   builtYear: number;
   abandonedYear: number;
   stories: number;
@@ -326,6 +326,7 @@ export class HousePrimitives {
   public readonly site: PlannedSite;
   public readonly colliders: LocalBoxCollider[] = [];
   public readonly walkSurfaces: LocalWalkSurface[] = [];
+  public readonly caveOverrides: LocalBoxCollider[] = [];
 
   private readonly buckets = new Map<string, BatchBucket>();
   private readonly matIds = new WeakMap<THREE.Material, number>();
@@ -432,6 +433,18 @@ export class HousePrimitives {
     });
   }
 
+  /** Registers an underground volume where the exterior mountain heightfield is bypassed (1890 Coal Mine). */
+  public caveOverride(minX: number, maxX: number, minY: number, maxY: number, minZ: number, maxZ: number): void {
+    this.caveOverrides.push({
+      minX: Math.min(minX, maxX),
+      maxX: Math.max(minX, maxX),
+      minY: Math.min(minY, maxY),
+      maxY: Math.max(minY, maxY),
+      minZ: Math.min(minZ, maxZ),
+      maxZ: Math.max(minZ, maxZ),
+    });
+  }
+
   /** Places a single box primitive with optional automatic world-UV scaling and local OBB collider. */
   public box(
     layer: GeometryLayer,
@@ -509,6 +522,35 @@ export class HousePrimitives {
     _pos.set(x, y, z);
     _mat4.compose(_pos, _quat, _scale);
     this.pushGeo(layer, geo, mat, _mat4, opts.castShadow ?? (layer === 'ext'), opts.receiveShadow ?? true);
+  }
+
+  /** Places an organic faceted rock / boulder / coal-pile / canopy primitive with optional solid collider. */
+  public rock(
+    layer: GeometryLayer,
+    radius: number,
+    detail: number,
+    x: number,
+    y: number,
+    z: number,
+    sx: number,
+    sy: number,
+    sz: number,
+    mat: THREE.Material,
+    opts: { rx?: number; ry?: number; rz?: number; solid?: boolean; castShadow?: boolean; receiveShadow?: boolean } = {}
+  ): void {
+    const geo = new THREE.DodecahedronGeometry(radius, detail);
+    _euler.set(opts.rx ?? 0, opts.ry ?? 0, opts.rz ?? 0, 'YXZ');
+    _quat.setFromEuler(_euler);
+    _pos.set(x, y, z);
+    const sc = new THREE.Vector3(sx, sy, sz);
+    _mat4.compose(_pos, _quat, sc);
+    this.pushGeo(layer, geo, mat, _mat4, opts.castShadow ?? (layer === 'ext'), opts.receiveShadow ?? true);
+    if (opts.solid) {
+      const rx = radius * sx * 0.78;
+      const ry = radius * sy * 0.85;
+      const rz = radius * sz * 0.78;
+      this.collider(x - rx, x + rx, y - ry, y + ry, z - rz, z + rz);
+    }
   }
 
   /** Places a triangular gable wall (妻壁) with base centered at (cx, baseY, cz). */
@@ -1038,6 +1080,7 @@ export class HousePrimitives {
       interiorGroup,
       colliders: this.colliders,
       walkSurfaces: this.walkSurfaces,
+      caveOverrides: this.caveOverrides.length > 0 ? this.caveOverrides : undefined,
       entryPoint: { x: worldEntryX, y: worldEntryY, z: worldEntryZ, lookYaw },
       worldBounds,
     };

@@ -5,6 +5,7 @@ import {
   TERRAIN_EXTENT_Z,
   sampleTerrain,
   getTerrainNormal,
+  isInsideMinePortalCutout,
 } from './terrainMath';
 
 const CHUNK_SIZE = 128;
@@ -250,7 +251,10 @@ function buildChunkGeometry(cx: number, cz: number, segs: number): THREE.BufferG
   let ptr = 0;
 
   for (let iz = 0; iz < segs; iz++) {
+    const qz = z0 + (iz + 0.5) * step;
     for (let ix = 0; ix < segs; ix++) {
+      const qx = x0 + (ix + 0.5) * step;
+      if (isInsideMinePortalCutout(qx, qz)) continue;
       const a = iz * vSide + ix;
       const b = a + 1;
       const c = a + vSide;
@@ -321,7 +325,7 @@ function buildChunkGeometry(cx: number, cz: number, segs: number): THREE.BufferG
   geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
   geo.setAttribute('aBiome', new THREE.BufferAttribute(biomes, 4));
-  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  geo.setIndex(new THREE.BufferAttribute(ptr === indices.length ? indices : indices.subarray(0, ptr), 1));
   geo.computeBoundingSphere();
   return geo;
 }

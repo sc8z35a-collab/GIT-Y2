@@ -7,18 +7,15 @@ import {
   SPAWN_POINT,
   SUMMIT_POINT,
   LOOKOUT_POINT,
-  PARK_POINT,
-  SECRET_BASE_POINT,
-  MINE_PORTAL_POINT,
   getTerrainHeight,
   getStreamCenterX,
 } from './terrainMath';
 
 /**
  * Builds the 2km x 5km hillside road infrastructure, site preparation (石垣 retaining walls
- * & weathered boundary stakes for unbuilt planned plots), wooden utility poles & sagging wires,
- * guardrails, Lookout Bend mossy graveyard/Jizo lanterns, 865m summit triangulation marker,
- * Kuroiso Gorge stream, and Driftwood Cove beach remnants.
+ * for older plots), wooden utility poles & sagging wires, guardrails, Lookout Bend mossy
+ * graveyard/Jizo lanterns, 865m summit triangulation marker, Kuroiso Gorge stream, and
+ * Driftwood Cove beach remnants.
  */
 export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group {
   const group = new THREE.Group();
@@ -35,11 +32,10 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
   const seaweedMat = catalog.getMaterial('seaweed_shore', { repeatX: 2, repeatY: 2, roughness: 0.72, bumpScale: 0.05 });
   const barnacleMat = catalog.getMaterial('barnacle_rock', { repeatX: 2, repeatY: 2, roughness: 0.9, bumpScale: 0.08 });
   const mossRockMat = catalog.getMaterial('moss_rock_heavy', { repeatX: 2, repeatY: 2, roughness: 0.92, bumpScale: 0.08 });
-  const coalRockMat = catalog.getMaterial('coal_seam_rock', { repeatX: 2, repeatY: 2, roughness: 0.88, bumpScale: 0.08 });
   const wireMat = new THREE.LineBasicMaterial({ color: 0x1a1c20, transparent: true, opacity: 0.72 });
 
   // =========================================================================
-  // 1. STONE RETAINING WALLS (石垣) & SUBTLE SITE BOUNDARY STAKES FOR UNBUILT PLOTS
+  // 1. STONE RETAINING WALLS (石垣) FOR EARLIER PLOTS WITHOUT BESPOKE FOUNDATIONS
   // =========================================================================
   const stakeGeo = new THREE.BoxGeometry(0.14, 1.15, 0.14);
   const cornerStoneGeo = new THREE.BoxGeometry(0.45, 0.36, 0.45);
@@ -61,9 +57,12 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
     siteGrp.rotation.y = s.yaw;
 
     // Hillside stone retaining embankment (石垣) holding up each terraced plot
-    const bespokeFoundationIds = new Set(['H06', 'H07', 'H08', 'H09', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24', 'H25', 'S01', 'S02', 'PORT01']);
+    const bespokeFoundationIds = new Set([
+      'H06', 'H07', 'H08', 'H09', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24', 'H25',
+      'S01', 'S02', 'PORT01', 'K01', 'P01', 'B01', 'M01',
+    ]);
     if (s.category !== 'secret_base' && s.category !== 'port' && !bespokeFoundationIds.has(s.id)) {
-      const wallH = s.category === 'park' ? 3.2 : 4.2;
+      const wallH = 4.2;
       const wall = new THREE.Mesh(
         new THREE.BoxGeometry(s.radiusX * 1.96, wallH, s.radiusZ * 1.96),
         i % 2 === 0 ? ishigakiMat : rubbleWallMat
@@ -74,7 +73,7 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
       siteGrp.add(wall);
     }
 
-    // Only place temporary corner boundary stones & survey stake on unbuilt planned plots
+    // Only place temporary corner boundary stones & survey stake on unbuilt planned plots (now 0 unbuilt!)
     if (!isBuilt) {
       const hx = s.radiusX * 0.82;
       const hz = s.radiusZ * 0.82;
@@ -99,105 +98,8 @@ export function buildVillageInfrastructure(catalog: TextureCatalog): THREE.Group
     group.add(siteGrp);
   }
 
-  // =========================================================================
-  // 2. VILLAGE PARK TERRACE DETAILS (P01 見晴らし村営公園)
-  // =========================================================================
-  {
-    const parkGrp = new THREE.Group();
-    parkGrp.position.set(PARK_POINT.x, PARK_POINT.y, PARK_POINT.z);
-    parkGrp.rotation.y = 0.2;
-    // Low mossy stone park wall on 3 sides (leaving road entrance open)
-    const wallN = new THREE.Mesh(new THREE.BoxGeometry(28.0, 0.72, 0.55), ishigakiMat);
-    wallN.position.set(0, 0.36, -11.2);
-    const wallW = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.72, 22.4), ishigakiMat);
-    wallW.position.set(-14.0, 0.36, 0);
-    const wallS = new THREE.Mesh(new THREE.BoxGeometry(28.0, 0.72, 0.55), ishigakiMat);
-    wallS.position.set(0, 0.36, 11.2);
-    // Two weathered wooden park benches overlooking the mountain bowl
-    for (const bz of [-4.5, 4.5]) {
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.12, 0.55), woodStakeMat);
-      seat.position.set(-7.5, 0.48, bz);
-      const back = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.42, 0.1), woodStakeMat);
-      back.position.set(-7.5, 0.78, bz - 0.24);
-      const legL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.48, 0.48), concreteMat);
-      legL.position.set(-8.35, 0.24, bz);
-      const legR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.48, 0.48), concreteMat);
-      legR.position.set(-6.65, 0.24, bz);
-      parkGrp.add(seat, back, legL, legR);
-    }
-    // Mossy stone drinking fountain pedestal in center
-    const fountain = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.85, 8), concreteMat);
-    fountain.position.set(4.5, 0.42, 0);
-    parkGrp.add(wallN, wallW, wallS, fountain);
-    group.add(parkGrp);
-  }
-
-  // =========================================================================
-  // 3. KIDS' DEEP-MOUNTAIN SECRET BASE GLADE (B01 子供たちの山奥の秘密基地)
-  // =========================================================================
-  {
-    const baseGrp = new THREE.Group();
-    baseGrp.position.set(SECRET_BASE_POINT.x, SECRET_BASE_POINT.y, SECRET_BASE_POINT.z);
-    // Ring of mossy sheltering boulders & weathered log seats around an old stone campfire ring
-    const ringPts: Array<[number, number, number]> = [
-      [-5.2, -3.5, 2.2], [-2.5, -5.8, 2.6], [2.4, -5.4, 2.1],
-      [5.5, -2.0, 2.4], [4.8, 3.6, 1.9], [-5.4, 2.8, 2.0],
-    ];
-    for (const [bx, bz, bs] of ringPts) {
-      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(bs, 1), mossRockMat);
-      rock.scale.set(1.2, 0.85, 1.0);
-      rock.position.set(bx, bs * 0.45, bz);
-      rock.castShadow = true;
-      rock.receiveShadow = true;
-      baseGrp.add(rock);
-    }
-    // Campfire stone circle & fallen log benches
-    for (let k = 0; k < 8; k++) {
-      const a = (k / 8) * Math.PI * 2;
-      const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24, 0), mossRockMat);
-      st.position.set(Math.cos(a) * 0.85, 0.14, Math.sin(a) * 0.85);
-      baseGrp.add(st);
-    }
-    for (const [lx, lz, ry] of [[-2.0, 0.8, 0.3], [1.8, -1.2, -0.7], [0.4, 2.3, 1.45]]) {
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 2.6, 7), driftwoodMat);
-      log.position.set(lx, 0.22, lz);
-      log.rotation.set(Math.PI / 2, ry, 0);
-      log.castShadow = true;
-      baseGrp.add(log);
-    }
-    group.add(baseGrp);
-  }
-
-  // =========================================================================
-  // 4. 1890 COAL MINE GORGE CLIFF ROCKS & PLANNED PORTAL MARKER (M01)
-  // =========================================================================
-  {
-    const mineGrp = new THREE.Group();
-    mineGrp.position.set(MINE_PORTAL_POINT.x, MINE_PORTAL_POINT.y, MINE_PORTAL_POINT.z);
-    // Dark coal-seam rock mounds & weathered timber shoring beams staged at the 1890 portal cliff
-    for (const [mx, mz, ms] of [[-7.5, -5.5, 3.2], [7.2, -5.0, 3.5], [0, -8.5, 4.2], [-9.2, 2.5, 2.1]]) {
-      const rk = new THREE.Mesh(new THREE.DodecahedronGeometry(ms, 1), coalRockMat);
-      rk.scale.set(1.25, 0.9, 1.0);
-      rk.position.set(mx, ms * 0.45, mz);
-      rk.castShadow = true;
-      rk.receiveShadow = true;
-      mineGrp.add(rk);
-    }
-    // Historic stone portal arch frame marking the 1890 opening site
-    const pierL = new THREE.Mesh(new THREE.BoxGeometry(1.4, 4.2, 2.2), ishigakiMat);
-    pierL.position.set(-2.6, 2.1, -6.2);
-    const pierR = new THREE.Mesh(new THREE.BoxGeometry(1.4, 4.2, 2.2), ishigakiMat);
-    pierR.position.set(2.6, 2.1, -6.2);
-    const lintel = new THREE.Mesh(new THREE.BoxGeometry(6.8, 1.3, 2.4), ishigakiMat);
-    lintel.position.set(0, 4.45, -6.2);
-    const darkMouth = new THREE.Mesh(
-      new THREE.BoxGeometry(3.8, 3.8, 1.2),
-      new THREE.MeshStandardMaterial({ color: 0x07080a, roughness: 1.0 })
-    );
-    darkMouth.position.set(0, 1.9, -6.8);
-    mineGrp.add(pierL, pierR, lintel, darkMouth);
-    group.add(mineGrp);
-  }
+  // Sections 2–4 (P01 Village Park, B01 Kids Secret Base, M01 1890 Coal Mine Cave) and K01 Police Box
+  // are now full collidable/enterable BuiltStructures in src/world/houses/!
 
   // =========================================================================
   // 5. 865.0m SUMMIT PANORAMA MARKER (黒磯岳主峰 標高865m 一等三角点 & ケルン)

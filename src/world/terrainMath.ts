@@ -12,8 +12,8 @@ export const LOOKOUT_POINT = { x: 235, z: 540, y: 268.0 };          // 見晴ら
 export const MINE_PORTAL_POINT = { x: -145, z: -890, y: 348.0 };    // 旧黒磯炭鉱 1890 坑口予定地
 export const SECRET_BASE_POINT = { x: 430, z: -580, y: 376.0 };     // 子供たちの山奥の秘密基地
 export const HIDDEN_PORT_POINT = { x: -522, z: -1768, y: 2.8 };     // けもの道先の秘境旧港（建設案）
-export const PARK_POINT = { x: -68, z: 215, y: 242.0 };             // 見晴らし村営公園
-export const KOBAN_POINT = { x: 82, z: 480, y: 238.0 };             // 黒磯駐在所（交番）
+export const PARK_POINT = { x: -52, z: 215, y: 242.0 };             // 見晴らし村営公園（下段村道東隣）
+export const KOBAN_POINT = { x: 91, z: 469, y: 239.0 };             // 黒磯駐在所（交番・村入口三叉路北東角）
 
 export type SiteCategory = 'house' | 'shop' | 'koban' | 'park' | 'secret_base' | 'mine' | 'port';
 
@@ -307,12 +307,12 @@ export const GRADED_PATHS: GradedPathSpec[] = [
 // ============================================================================
 export const PLANNED_SITES: PlannedSite[] = [
   // --- Public, Commercial & Landmark Sites (7) ---
-  { id: 'K01',    name: '黒磯駐在所（交番）予定地',       category: 'koban',       x:   82, z:   480, y: 238.0, radiusX: 7.0,  radiusZ: 6.0,  yaw: -0.40, blendMargin: 13.0, note: '海岸林道と中段・下段村道の要衝交差点' },
+  { id: 'K01',    name: '黒磯駐在所（交番・明治29年築）',   category: 'koban',       x:   91, z:   469, y: 239.0, radiusX: 7.2,  radiusZ: 6.2,  yaw: -0.52, blendMargin: 13.5, note: '1896年築・赤灯常夜灯＆掲示板・1F駐在事務室＆保護室・2F官舎＆三叉路バルコニー' },
   { id: 'S01',    name: '黒磯よろず商店・簡易郵便取扱所', category: 'shop',        x:  144, z:   309, y: 252.0, radiusX: 8.8,  radiusZ: 6.6,  yaw: -1.18, blendMargin: 14.0, note: '1888年築・商業施設01・赤白縞テント庇＆丸型ポスト・よろず売場＆郵便窓口・2F店主居宅' },
   { id: 'S02',    name: '炭鉱購買部・大衆食堂「みなとや」', category: 'shop',      x:  -60, z:  -156, y: 258.0, radiusX: 9.6,  radiusZ: 6.8,  yaw: -2.25, blendMargin: 15.0, note: '1894年築・商業施設02・暖簾＆L字食堂カウンター・炭鉱購買部・2F大宴会座敷' },
-  { id: 'P01',    name: '見晴らし村営公園',               category: 'park',        x:  -68, z:   215, y: 242.0, radiusX: 15.0, radiusZ: 12.0, yaw:  0.20, blendMargin: 16.0, note: '石垣縁の芝雑草広場・村営公園（1件）' },
-  { id: 'B01',    name: '子供たちの山奥の秘密基地',       category: 'secret_base', x:  430, z:  -580, y: 376.0, radiusX: 8.0,  radiusZ: 7.5,  yaw: -0.80, blendMargin: 14.0, note: '東山中・深い杉林とシダの隠れ窪地' },
-  { id: 'M01',    name: '旧黒磯炭鉱 第一坑口（1890）',    category: 'mine',        x: -145, z:  -890, y: 348.0, radiusX: 13.0, radiusZ: 11.0, yaw:  0.15, blendMargin: 16.0, note: '明治23年開坑予定地・黒岩断崖直下' },
+  { id: 'P01',    name: '見晴らし村営公園（1964年整備）',   category: 'park',        x:  -52, z:   215, y: 242.0, radiusX: 15.5, radiusZ: 12.5, yaw:  0.15, blendMargin: 16.0, note: '1964年整備・登れるすべり台＆ブランコ＆ジャングルジム・本瓦東屋・水飲み場・管理小屋' },
+  { id: 'B01',    name: '子供たちの山奥の秘密基地（1980）', category: 'secret_base', x:  430, z:  -580, y: 376.0, radiusX: 8.5,  radiusZ: 8.0,  yaw: -0.80, blendMargin: 14.0, note: '1980〜1985年・苔巨岩焚き火広場＆廃材トタン隠れ家・2F巨杉の樹上見張りやぐら' },
+  { id: 'M01',    name: '旧黒磯炭鉱 第一坑口・地下坑道（1890）', category: 'mine',  x: -145, z:  -890, y: 348.0, radiusX: 13.5, radiusZ: 12.0, yaw:  0.15, blendMargin: 16.0, note: '1890年開坑・全長135m地下坑道・安全灯室・火薬庫・水没排水坑・手掘り炭層＆山の神・斜坑大採炭空洞' },
   { id: 'PORT01', name: '旧黒磯秘境港（石灯台・桟橋・海運倉庫）', category: 'port', x: -522, z: -1768, y:   2.8, radiusX: 16.0, radiusZ:  5.2,  yaw:  Math.PI * 0.25, blendMargin: 5.5, note: '1892年開港・22m木造桟橋・漁船黒磯丸・登れる石灯台・2F海運倉庫' },
 
   // --- Lower Hillside Road Houses (H01–H08: Y = 222m..242m) ---
@@ -347,17 +347,35 @@ export const PLANNED_SITES: PlannedSite[] = [
   { id: 'H25', name: '民家 25（沢田小屋・落石直撃半崩壊番小屋）', category: 'house', x:  142, z: -362, y: 288.0, radiusX: 7.2, radiusZ: 6.0, yaw: -0.85, blendMargin: 12.5, note: '1891年築・直径3.6m巨大火山落石直撃・2F落石見下ろしロフト＆獣道入口番小屋' },
 ];
 
-/** All 25 hand-crafted detached houses + 2 commercial shops + 1 Hidden Old Port completed through Phase 6 (28 total!) */
+/** ALL 32/32 island sites hand-crafted and completed (25 houses + 2 shops + Hidden Port + 1890 Coal Mine + Koban + Park + Kids Secret Base)! */
 export const BUILT_HOUSE_IDS = new Set<string>([
   'H01', 'H02', 'H03', 'H04', 'H05', 'H06', 'H07', 'H08', 'H09', 'H10',
   'H11', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20',
   'H21', 'H22', 'H23', 'H24', 'H25',
   'S01', 'S02', 'PORT01',
+  'K01', 'P01', 'B01', 'M01',
 ]);
 
 const BUILT_HOUSE_SITES: PlannedSite[] = PLANNED_SITES.filter((s) => BUILT_HOUSE_IDS.has(s.id));
 
-/** Fast check whether world (x, z) lies within any constructed house's interior footprint */
+const MINE_PORTAL_COS = Math.cos(0.15);
+const MINE_PORTAL_SIN = Math.sin(0.15);
+
+/**
+ * Precise terrain-mesh portal cutout for the 1890 Coal Mine mouth (M01).
+ * Punches ONLY the rising cliff transition quads where the tunnel bores into Mt. Kuroiso
+ * (M01 local X ∈ [-3.6, +3.6], Z ∈ [-30.5, -19.5]), completely sealed by M01's 24m basalt/stone portal collar.
+ */
+export function isInsideMinePortalCutout(wx: number, wz: number): boolean {
+  const dx = wx - MINE_PORTAL_POINT.x;
+  const dz = wz - MINE_PORTAL_POINT.z;
+  if (dx * dx + dz * dz > 1600) return false;
+  const lx = dx * MINE_PORTAL_COS - dz * MINE_PORTAL_SIN;
+  const lz = dx * MINE_PORTAL_SIN + dz * MINE_PORTAL_COS;
+  return lx >= -3.6 && lx <= 3.6 && lz >= -30.5 && lz <= -19.5;
+}
+
+/** Fast check whether world (x, z) lies within any constructed structure's footprint (keeps trees off yards/portals) */
 export function isInsideBuiltHouseFootprint(x: number, z: number, pad = 0.0): boolean {
   for (let i = 0; i < BUILT_HOUSE_SITES.length; i++) {
     const s = BUILT_HOUSE_SITES[i];

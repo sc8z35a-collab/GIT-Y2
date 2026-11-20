@@ -31,6 +31,10 @@ import { buildHouse25Sawada } from './house25_sawada';
 import { buildShop01Yorozu } from './shop01_yorozu';
 import { buildShop02Minatoya } from './shop02_minatoya';
 import { buildPort01HiddenPort } from './port01_hidden_port';
+import { buildKoban01Kuroiso } from './koban01_kuroiso';
+import { buildPark01Miharashi } from './park01_miharashi';
+import { buildSecretBase01Kids } from './secretbase01_kids';
+import { buildMine01CoalMine } from './mine01_coalmine';
 
 export interface HouseStreamStats {
   totalHouses: number;
@@ -46,8 +50,8 @@ export interface HouseSystem {
   getStats(): HouseStreamStats;
 }
 
-const EXTERIOR_CULL_DIST_SQ = 1750 * 1750;
-const INTERIOR_CULL_DIST_SQ = 135 * 135;
+const EXTERIOR_CULL_DIST = 1750;
+const INTERIOR_CULL_DIST = 135;
 
 const HOUSE_BUILDERS: ReadonlyArray<{
   id: string;
@@ -81,11 +85,15 @@ const HOUSE_BUILDERS: ReadonlyArray<{
   { id: 'S01', build: buildShop01Yorozu },
   { id: 'S02', build: buildShop02Minatoya },
   { id: 'PORT01', build: buildPort01HiddenPort },
+  { id: 'K01', build: buildKoban01Kuroiso },
+  { id: 'P01', build: buildPark01Miharashi },
+  { id: 'B01', build: buildSecretBase01Kids },
+  { id: 'M01', build: buildMine01CoalMine },
 ];
 
 /**
- * Assembles all 25 individually hand-crafted wooden houses, 2 enterable commercial facilities
- * (S01, S02), and the full walkable/enterable Hidden Northwest Cove Old Port (PORT01) — 28 total!
+ * Assembles ALL 32 individually hand-crafted island structures:
+ * 25 wooden houses + 2 commercial shops + Hidden Old Port + 1890 Coal Mine Cave + Koban + Village Park + Kids Secret Base!
  */
 export function buildAllHouses(catalog: TextureCatalog): HouseSystem {
   const siteById = new Map<string, PlannedSite>();
@@ -94,7 +102,7 @@ export function buildAllHouses(catalog: TextureCatalog): HouseSystem {
   }
 
   const group = new THREE.Group();
-  group.name = 'kuroiso_all_structures_phase6';
+  group.name = 'kuroiso_all_32_structures';
 
   const structures: BuiltStructure[] = [];
   const byId = new Map<string, BuiltStructure>();
@@ -103,7 +111,7 @@ export function buildAllHouses(catalog: TextureCatalog): HouseSystem {
     const entry = HOUSE_BUILDERS[i];
     const site = siteById.get(entry.id);
     if (!site) {
-      throw new Error(`Missing PlannedSite for built house ${entry.id}`);
+      throw new Error(`Missing PlannedSite for built structure ${entry.id}`);
     }
     const built = entry.build(site, catalog);
     structures.push(built);
@@ -117,23 +125,20 @@ export function buildAllHouses(catalog: TextureCatalog): HouseSystem {
   const update = (playerPos: THREE.Vector3): void => {
     let visExt = 0;
     let visInt = 0;
-    const px = playerPos.x;
-    const pz = playerPos.z;
 
     for (let i = 0; i < structures.length; i++) {
       const s = structures[i];
-      const dx = s.position.x - px;
-      const dz = s.position.z - pz;
-      const distSq = dx * dx + dz * dz;
+      // Use distance to worldBounds AABB so sprawling underground tunnels (M01) and piers (PORT01) NEVER cull while inside!
+      const dist = s.worldBounds.distanceToPoint(playerPos);
 
-      const showExt = distSq <= EXTERIOR_CULL_DIST_SQ;
+      const showExt = dist <= EXTERIOR_CULL_DIST;
       if (s.group.visible !== showExt) {
         s.group.visible = showExt;
       }
       if (showExt) {
         visExt++;
         if (s.interiorGroup) {
-          const showInt = distSq <= INTERIOR_CULL_DIST_SQ;
+          const showInt = dist <= INTERIOR_CULL_DIST;
           if (s.interiorGroup.visible !== showInt) {
             s.interiorGroup.visible = showInt;
           }

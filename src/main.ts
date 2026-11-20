@@ -201,7 +201,7 @@ function bootstrap(): void {
   // 4. Shared Texture Catalog (212 WebP tiles strictly from user-provided assets/textures/)
   const catalog = new TextureCatalog(renderer);
 
-  // 5. Dynamic 4-LOD Streaming Terrain, 3-Tier Streaming Forest & Wind Grass, Ocean, Infrastructure & 10 Hand-Crafted Houses
+  // 5. Dynamic 4-LOD Streaming Terrain, 3-Tier Streaming Forest & Wind Grass, Ocean, Infrastructure & ALL 32 Structures
   const collision = new WorldCollision();
   const terrainStreamer = new TerrainStreamer(catalog);
   const foliageStreamer = new FoliageStreamer(catalog);
@@ -217,7 +217,84 @@ function bootstrap(): void {
   scene.add(infrastructure);
   scene.add(houseSystem.group);
 
-  // Register lowercase house IDs (h01, h02, ..., h22) as instant teleport presets
+  // ★ Subterranean 1890 Coal Mine Dynamic Explorer Headlamp & Strategic Warm Bulkhead Lights (0 cost outside mine!)
+  const caveHeadlamp = new THREE.PointLight(0xffd292, 0, 34, 1.35);
+  caveHeadlamp.visible = false;
+  scene.add(caveHeadlamp);
+
+  const mineStructure = houseSystem.getById('M01');
+  const mineBulkheadLights: THREE.PointLight[] = [];
+  if (mineStructure) {
+    const mc = Math.cos(mineStructure.yaw);
+    const ms = Math.sin(mineStructure.yaw);
+    const mineLampSpecs: Array<[number, number, number, number, number, number]> = [
+      // [lx, ly, lz, color, intensity, distance]
+      [0.0, 3.15, -36.0, 0xffb35c, 4.2, 34],    // Main Haulage Drift & Tool Alcove
+      [6.8, 2.95, -48.5, 0xffa64a, 3.4, 22],    // Brick Explosives Vault
+      [0.0, 4.45, -73.0, 0xffbe68, 5.4, 42],    // Underground Turntable & Electric Hoist Hub
+      [-26.0, 1.25, -73.0, 0x8cc8dc, 4.0, 32],  // West Flooded Drainage Pump Gallery (cool damp sheen!)
+      [26.2, 4.95, -73.0, 0xffaa4c, 4.6, 30],   // East 1890 Hand-Dug Coal Stope & Mountain God Shrine!
+      [0.0, 2.40, -119.0, 0xffbd6b, 6.2, 48],   // Deep -5.2m Grand Coal Cavern & Loading Hopper!
+    ];
+    for (const [lx, ly, lz, col, inten, dist] of mineLampSpecs) {
+      const pl = new THREE.PointLight(col, inten, dist, 1.35);
+      pl.position.set(
+        mineStructure.position.x + lx * mc + lz * ms,
+        mineStructure.position.y + ly,
+        mineStructure.position.z - lx * ms + lz * mc
+      );
+      pl.visible = false;
+      scene.add(pl);
+      mineBulkheadLights.push(pl);
+    }
+  }
+
+  const skyFogColor = new THREE.Color(FOG_COLOR);
+  const mineFogColor = new THREE.Color(0x0c1015);
+  const currentFogColor = new THREE.Color(FOG_COLOR);
+  let caveLightFactor = 0;
+
+  const updateSubterraneanAtmosphere = (instant = false) => {
+    let targetFactor = 0;
+    if (mineStructure) {
+      const dx = controller.position.x - mineStructure.position.x;
+      const dz = controller.position.z - mineStructure.position.z;
+      if (dx * dx + dz * dz < 165 * 165) {
+        const mc = Math.cos(mineStructure.yaw);
+        const ms = Math.sin(mineStructure.yaw);
+        const lx = dx * mc - dz * ms;
+        const lz = dx * ms + dz * mc;
+        if (lz < -14.0 && lx > -45 && lx < 42 && lz > -145) {
+          // Smooth transition right through the 1890 stone arch portal (Z: -14 -> -26m!)
+          targetFactor = Math.max(0, Math.min(1, (-14.0 - lz) / 12.0));
+        }
+      }
+    }
+    caveLightFactor = instant ? targetFactor : caveLightFactor + (targetFactor - caveLightFactor) * 0.16;
+    if (caveLightFactor < 0.004 && targetFactor === 0) caveLightFactor = 0;
+
+    // Dim outdoor sun & sky fill smoothly as player enters deep beneath Mt. Kuroiso
+    sunLight.intensity = 2.32 * (1 - caveLightFactor);
+    hemiLight.intensity = 1.08 * (1 - caveLightFactor) + 0.24 * caveLightFactor;
+    if (scene.fog instanceof THREE.FogExp2) {
+      currentFogColor.copy(skyFogColor).lerp(mineFogColor, caveLightFactor);
+      scene.fog.color.copy(currentFogColor);
+      scene.fog.density = FOG_DENSITY * (1 - caveLightFactor) + 0.0115 * caveLightFactor;
+      scene.background = currentFogColor;
+    }
+
+    const caveActive = caveLightFactor > 0.02;
+    caveHeadlamp.visible = caveActive;
+    if (caveActive) {
+      caveHeadlamp.position.copy(camera.position);
+      caveHeadlamp.intensity = 5.4 * caveLightFactor;
+    }
+    for (let i = 0; i < mineBulkheadLights.length; i++) {
+      mineBulkheadLights[i].visible = caveActive;
+    }
+  };
+
+  // Register lowercase structure IDs (h01..h25, s01, s02, port01, k01, p01, b01, m01) as instant teleport presets
   const presets: Record<string, { x: number; z: number; yaw: number; pitch: number }> = {
     ...TELEPORT_PRESETS,
   };
@@ -230,6 +307,12 @@ function bootstrap(): void {
       pitch: 0.04,
     };
   }
+  // Ensure semantic landmark presets point right at the finished entry vantages!
+  if (presets.k01) presets.koban = presets.k01;
+  if (presets.p01) presets.park = presets.p01;
+  if (presets.b01) presets.secret = presets.b01;
+  if (presets.m01) presets.mine = presets.m01;
+  if (presets.port01) presets.port = presets.port01;
 
   // 6. Player First-Person Controller (supports optional ?tp= preset for instant inspection)
   const controller = new FirstPersonController(camera, canvas, collision, skipIntro);
@@ -247,6 +330,7 @@ function bootstrap(): void {
     terrainStreamer.warmStart(controller.position.x, controller.position.z);
     foliageStreamer.warmStart(controller.position.x, controller.position.z);
     houseSystem.update(controller.position);
+    updateSubterraneanAtmosphere(true);
   };
   warmStreamAroundPlayer();
 
@@ -336,9 +420,10 @@ function bootstrap(): void {
     // Update player first-person movement & collision
     controller.update(physDt);
 
-    // Keep sky dome centered on camera & dynamic sun shadow box locked around player
+    // Keep sky dome centered on camera, dynamic sun shadow box locked, and subterranean cave lights tuned!
     skyDome.position.copy(camera.position);
     updateSunShadowFollow();
+    updateSubterraneanAtmosphere(forceHud);
 
     // Update ocean waves, strictly budgeted terrain/foliage streaming & house distance culling
     oceanSystem.update(elapsedSec);

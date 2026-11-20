@@ -38,7 +38,7 @@ export interface BuiltStructure {
   id: string;
   name: string;
   subtitle: string;
-  category: 'house' | 'commercial' | 'port' | 'mine';
+  category: 'house' | 'commercial' | 'port' | 'mine' | 'koban' | 'park' | 'secret_base';
   builtYear: number;
   abandonedYear: number;
   position: THREE.Vector3;
