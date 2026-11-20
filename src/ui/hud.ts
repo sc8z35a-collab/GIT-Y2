@@ -380,12 +380,12 @@ export class GameHUD {
 
             <div>
               <div class="setting-group-label">
-                <span>KHDR（独自強化 16bit 線形 HDR エンジン）</span>
-                <span id="settings-khdr-readout">${this.settings.khdr ? 'KHDR ON' : 'KHDR OFF'}</span>
+                <span>KHDR 1.1（独自強化 16bit 線形 HDR ＋ 統合深度光学）</span>
+                <span id="settings-khdr-readout">${this.settings.khdr ? 'KHDR 1.1 ON' : 'KHDR OFF'}</span>
               </div>
               <div class="segmented two-col" id="khdr-group">
                 <button class="seg-btn ${this.settings.khdr ? 'selected' : ''}" data-khdr="on">
-                  KHDR ON<span>K-LHE局所輝度・光学ブルーム・K-Filmic</span>
+                  KHDR 1.1 ON<span>瞳孔順応・無ハローLHE・4階層ハレーション・薄明光線</span>
                 </button>
                 <button class="seg-btn ${!this.settings.khdr ? 'selected' : ''}" data-khdr="off">
                   KHDR OFF<span>標準 ACES・最軽量フォワード描画</span>
@@ -395,24 +395,24 @@ export class GameHUD {
 
             <div>
               <div class="setting-group-label">
-                <span>Shadow Flame 1.0（独自リアル影エンジン）</span>
-                <span id="settings-sf-readout">${this.settings.shadowFlame === 'pro' ? '1.0 Pro' : '1.0 Flash'}</span>
+                <span>Shadow Flame 1.1（スマホ最適化 独自リアル影エンジン）</span>
+                <span id="settings-sf-readout">${this.settings.shadowFlame === 'pro' ? '1.1 Pro' : '1.1 Flash'}</span>
               </div>
               <div class="segmented two-col" id="sf-group">
                 <button class="seg-btn ${this.settings.shadowFlame === 'flash' ? 'selected' : ''}" data-sf="flash">
-                  Shadow Flame 1.0 Flash<span>超軽量Vogel-6＋青ノイズ回転＋空色反射影</span>
+                  Shadow Flame 1.1 Flash<span>ZeroSwim＋6km全山影＋雲影＋超軽量Vogel-6</span>
                 </button>
                 <button class="seg-btn ${this.settings.shadowFlame === 'pro' ? 'selected' : ''}" data-sf="pro">
-                  Shadow Flame 1.0 Pro<span>デュアルカスケード＋PCSS硬化＋微細接地影</span>
+                  Shadow Flame 1.1 Pro<span>3段分散カスケード＋PCSS v2＋統合SSCS/GTAO</span>
                 </button>
               </div>
             </div>
 
             <div class="settings-note" id="settings-engine-note">
-              <strong>KHDR ${this.settings.khdr ? 'ON' : 'OFF'} × Shadow Flame ${this.settings.shadowFlame === 'pro' ? '1.0 Pro' : '1.0 Flash'} 稼働中</strong><br/>
-              ・<strong>KHDR</strong>: RGBA16F 線形HDR＋Karis加重Dual-Kawase光学ブルーム＋K-LHE局所明暗平衡＋K-Clarity微細鮮鋭化＋AgX着想K-Filmic v1色相保持カーブ<br/>
-              ・<strong>Shadow Flame 1.0 Flash</strong>: 1536² テンポラルキャッシュ・6タップIGN回転Vogelディスク（標準比-44%画素/-33%フェッチ）＋天空青散乱影<br/>
-              ・<strong>Shadow Flame 1.0 Pro</strong>: 近景±50m(4.8cm/texel)＋遠景±245mデュアルカスケード・8探索+16可変PCSS物理接触硬化・画面空間MicroContact微細影・山岳遠景セルフシャドウ
+              <strong>KHDR 1.1 ${this.settings.khdr ? 'ON' : 'OFF'} × Shadow Flame ${this.settings.shadowFlame === 'pro' ? '1.1 Pro' : '1.1 Flash'} 稼働中</strong><br/>
+              ・<strong>KHDR 1.1</strong>: GPU 1×1非対称瞳孔順応(K-Adapt)＋無ハローBilateral K-LHE v2＋4階層35mmハレーション＋薄明光線ゴッドレイ＋露出後プルキンエ暗所視覚＋葉色ズレ0.00° K-Filmic v2<br/>
+              ・<strong>Shadow Flame 1.1 Flash</strong>: ライト空間完全量子化(SF-ZeroSwim)＋5KB 6km全山ホライゾン影(GPU負荷0)＋移動雲影＆木漏れ日＋逆光透過光(葉色厳守)<br/>
+              ・<strong>Shadow Flame 1.1 Pro</strong>: 3段階対数分散カスケード(1f最大1枚・2.7〜3.1cm精度)＋dZ/dUV勾配＆2段早期離脱PCSS v2＋単一パス統合DepthFx(SF-SSCS接地影＆SF-GTAO-Lite環境遮蔽)
             </div>
           </div>
         </div>
@@ -970,16 +970,16 @@ export class GameHUD {
     const fpsRo = this.root.querySelector('#settings-fps-readout');
     if (fpsRo) fpsRo.textContent = next.fpsLimit === '120' ? '120 FPS' : '無制限';
     const khdrRo = this.root.querySelector('#settings-khdr-readout');
-    if (khdrRo) khdrRo.textContent = next.khdr ? 'KHDR ON' : 'KHDR OFF';
+    if (khdrRo) khdrRo.textContent = next.khdr ? 'KHDR 1.1 ON' : 'KHDR OFF';
     const sfRo = this.root.querySelector('#settings-sf-readout');
-    if (sfRo) sfRo.textContent = next.shadowFlame === 'pro' ? '1.0 Pro' : '1.0 Flash';
+    if (sfRo) sfRo.textContent = next.shadowFlame === 'pro' ? '1.1 Pro' : '1.1 Flash';
     const note = this.root.querySelector('#settings-engine-note');
     if (note) {
       note.innerHTML =
-        `<strong>KHDR ${next.khdr ? 'ON' : 'OFF'} × Shadow Flame ${next.shadowFlame === 'pro' ? '1.0 Pro' : '1.0 Flash'} 稼働中</strong><br/>` +
-        `・<strong>KHDR</strong>: RGBA16F 線形HDR＋Karis加重Dual-Kawase光学ブルーム＋K-LHE局所明暗平衡＋K-Clarity微細鮮鋭化＋AgX着想K-Filmic v1色相保持カーブ<br/>` +
-        `・<strong>Shadow Flame 1.0 Flash</strong>: 1536² テンポラルキャッシュ・6タップIGN回転Vogelディスク（標準比-44%画素/-33%フェッチ）＋天空青散乱影<br/>` +
-        `・<strong>Shadow Flame 1.0 Pro</strong>: 近景±50m(4.8cm/texel)＋遠景±245mデュアルカスケード・8探索+16可変PCSS物理接触硬化・画面空間MicroContact微細影・山岳遠景セルフシャドウ`;
+        `<strong>KHDR 1.1 ${next.khdr ? 'ON' : 'OFF'} × Shadow Flame ${next.shadowFlame === 'pro' ? '1.1 Pro' : '1.1 Flash'} 稼働中</strong><br/>` +
+        `・<strong>KHDR 1.1</strong>: GPU 1×1非対称瞳孔順応(K-Adapt)＋無ハローBilateral K-LHE v2＋4階層35mmハレーション＋薄明光線ゴッドレイ＋露出後プルキンエ暗所視覚＋葉色ズレ0.00° K-Filmic v2<br/>` +
+        `・<strong>Shadow Flame 1.1 Flash</strong>: ライト空間完全量子化(SF-ZeroSwim)＋5KB 6km全山ホライゾン影(GPU負荷0)＋移動雲影＆木漏れ日＋逆光透過光(葉色厳守)<br/>` +
+        `・<strong>Shadow Flame 1.1 Pro</strong>: 3段階対数分散カスケード(1f最大1枚・2.7〜3.1cm精度)＋dZ/dUV勾配＆2段早期離脱PCSS v2＋単一パス統合DepthFx(SF-SSCS接地影＆SF-GTAO-Lite環境遮蔽)`;
     }
   }
 
@@ -1081,8 +1081,8 @@ export class GameHUD {
     this.compassEl.textContent = getCompassText(this.controller.yaw);
 
     const triK = (metrics.terrain.approxTriangles / 1000).toFixed(0);
-    const khdrTag = metrics.khdr ? 'KHDR ON' : 'KHDR OFF';
-    const sfTag = metrics.shadowFlame === 'pro' ? 'SF 1.0 Pro' : 'SF 1.0 Flash';
+    const khdrTag = metrics.khdr ? 'KHDR 1.1' : 'KHDR OFF';
+    const sfTag = metrics.shadowFlame === 'pro' ? 'SF 1.1 Pro' : 'SF 1.1 Flash';
     this.telemetryEl.innerHTML =
       `<strong>${metrics.fps.toFixed(0)} FPS</strong> · ${metrics.frameMs.toFixed(1)}ms · ${metrics.renderWidth}×${metrics.renderHeight} · <strong>${khdrTag}</strong> · <strong>${sfTag}</strong><br/>` +
       `地形 ${metrics.terrain.activeChunks}ch (${triK}k△) · 木${metrics.foliage.visibleTrees} / 建築${metrics.houses.visibleHouses}(内装${metrics.houses.visibleInteriors})`;

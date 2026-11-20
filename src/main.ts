@@ -3,7 +3,7 @@ import './styles.css';
 import { GraphicsSettings, ResolutionPreset, ShadowFlameMode } from './core/types';
 import { TextureCatalog } from './core/textureCatalog';
 import { WorldCollision } from './core/collision';
-import { installShadowFlameShaders, ShadowFlameSystem } from './core/shadowFlame';
+import { installShadowFlameShaders, ShadowFlameSystem, detectMobileTier } from './core/shadowFlame';
 import { KHDRPipeline } from './core/khdrPipeline';
 import {
   SPAWN_POINT,
@@ -191,16 +191,17 @@ function bootstrap(): void {
 
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / Math.max(1, window.innerHeight), 0.25, 22000);
 
-  // 3. Sky Dome, Hemisphere Fill, Shadow Flame 1.0 Engine (Flash / Pro) & KHDR Linear HDR Pipeline
+  // 3. Sky Dome, Hemisphere Fill, Shadow Flame 1.1 Engine (Flash / Pro) & KHDR 1.1 Linear HDR Pipeline
+  const mobileTier = detectMobileTier();
   const skyDome = createSkyDome(SUN_DIRECTION);
   scene.add(skyDome);
 
   const hemiLight = new THREE.HemisphereLight(0xbce0ff, 0x566b46, 1.08);
   scene.add(hemiLight);
 
-  const shadowFlame = new ShadowFlameSystem(scene, SUN_DIRECTION, settings.shadowFlame);
+  const shadowFlame = new ShadowFlameSystem(scene, SUN_DIRECTION, settings.shadowFlame, mobileTier);
   const sunLight = shadowFlame.sunLight;
-  const khdrPipeline = new KHDRPipeline(renderer, 1280, 720, settings.khdr);
+  const khdrPipeline = new KHDRPipeline(renderer, 1280, 720, settings.khdr, SUN_DIRECTION, mobileTier);
 
   // 4. Shared Texture Catalog (212 WebP tiles strictly from user-provided assets/textures/)
   const catalog = new TextureCatalog(renderer);
@@ -337,10 +338,11 @@ function bootstrap(): void {
     houseSystem.update(controller.position);
     updateSubterraneanAtmosphere(true);
     shadowFlame.invalidate();
+    khdrPipeline.resetAdaptation();
   };
   warmStreamAroundPlayer();
 
-  // 7. Resolution Manager (HD 1280x720 / FHD 1920x1080 / 1.5K 2560x1440) + KHDR buffer sync
+  // 7. Resolution Manager (HD 1280x720 / FHD 1920x1080 / 1.5K 2560x1440) + KHDR 1.1 buffer sync
   let renderWidth = 1280;
   let renderHeight = 720;
 
@@ -410,7 +412,7 @@ function bootstrap(): void {
     houseSystem.structures
   );
 
-  // 9. Main Render Loop with 120 FPS / Unlimited FPS Pacing, Shadow Flame 1.0 Temporal Caching & KHDR
+  // 9. Main Render Loop with 120 FPS / Unlimited FPS Pacing, Shadow Flame 1.1 Staggered Cascades & KHDR 1.1
   let lastRenderTime = performance.now();
   let lastPhysicsTime = lastRenderTime;
   let smoothFrameMs = 16.6;
@@ -418,12 +420,12 @@ function bootstrap(): void {
   let renderedFrames = 0;
   let loopPaused = false;
 
-  const updateSunShadowFollow = (force = false) => {
+  const updateSunShadowFollow = (elapsedSec = 0, force = false) => {
     const tS = terrainStreamer.getStats();
     const fS = foliageStreamer.getStats();
     const hS = houseSystem.getStats();
     const sig = `${tS.activeChunks}:${tS.lod0Count}:${tS.lod1Count}:${fS.nearForestCells}:${fS.midForestCells}:${hS.visibleHouses}:${shadowFlame.getMode()}`;
-    shadowFlame.update(controller.position, sig, force);
+    shadowFlame.update(controller.position, sig, elapsedSec, force);
   };
 
   const renderSingleFrame = (now: number, forceHud = false) => {
@@ -443,13 +445,13 @@ function bootstrap(): void {
     foliageStreamer.update(controller.position.x, controller.position.z, elapsedSec);
     houseSystem.update(controller.position);
 
-    // Keep sky dome centered on camera, Shadow Flame 1.0 cascades synced, and subterranean cave lights tuned!
+    // Keep sky dome centered on camera, Shadow Flame 1.1 cascades synced, and subterranean cave lights tuned!
     skyDome.position.copy(camera.position);
     updateSubterraneanAtmosphere(forceHud);
-    updateSunShadowFollow(forceHud);
+    updateSunShadowFollow(elapsedSec, forceHud);
 
-    // Render frame through KHDR (16-bit Linear HDR + K-LHE + K-Clarity + K-Filmic v1) or baseline forward path
-    khdrPipeline.render(scene, camera, caveLightFactor);
+    // Render frame through KHDR 1.1 (Single-Pass K-Fused DepthFx + K-Adapt + Bilateral K-LHE v2 + K-Filmic v2)
+    khdrPipeline.render(scene, camera, caveLightFactor, settings.shadowFlame, physDt);
 
     // Consistent FPS / frame-ms telemetry (ignore initial 3 shader-compile warmup frames)
     if (renderedFrames >= 3) {
@@ -492,7 +494,7 @@ function bootstrap(): void {
     renderSingleFrame(now);
   };
 
-  // Expose lightweight debug telemetry & live KHDR / Shadow Flame 1.0 A/B toggle for verification scripts
+  // Expose lightweight debug telemetry & live KHDR 1.1 / Shadow Flame 1.1 A/B toggle for verification scripts
   (window as unknown as Record<string, unknown>).__KUROISO_DEBUG__ = {
     setPaused: (paused: boolean) => {
       loopPaused = paused;
@@ -501,7 +503,7 @@ function bootstrap(): void {
       const merged: GraphicsSettings = { ...settings, ...partial };
       applyGraphicsSettings(merged);
       hud.syncGraphicsUI(merged);
-      updateSunShadowFollow(true);
+      updateSunShadowFollow((performance.now() - startTime) * 0.001, true);
     },
     renderFrame: () => {
       renderSingleFrame(performance.now(), true);
@@ -510,7 +512,7 @@ function bootstrap(): void {
       controller.teleport(x, z, yaw, pitch, yOverride);
       warmStreamAroundPlayer();
       skyDome.position.copy(camera.position);
-      updateSunShadowFollow(true);
+      updateSunShadowFollow((performance.now() - startTime) * 0.001, true);
     },
     teleportPreset: (key: string, yawOverride?: number, pitchOverride?: number) => {
       const t = presets[key.toLowerCase()];
@@ -518,7 +520,7 @@ function bootstrap(): void {
       controller.teleport(t.x, t.z, yawOverride ?? t.yaw, pitchOverride ?? t.pitch);
       warmStreamAroundPlayer();
       skyDome.position.copy(camera.position);
-      updateSunShadowFollow(true);
+      updateSunShadowFollow((performance.now() - startTime) * 0.001, true);
     },
     teleportHouse: (
       id: string,
@@ -538,7 +540,7 @@ function bootstrap(): void {
       controller.teleport(wx, wz, s.yaw + localYaw, pitch, wy);
       warmStreamAroundPlayer();
       skyDome.position.copy(camera.position);
-      updateSunShadowFollow(true);
+      updateSunShadowFollow((performance.now() - startTime) * 0.001, true);
       return true;
     },
     houses: houseSystem.structures.map((s) => ({

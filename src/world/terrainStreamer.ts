@@ -7,6 +7,7 @@ import {
   getTerrainNormal,
   isInsideMinePortalCutout,
 } from './terrainMath';
+import { sampleMacroHorizonVis } from './horizon6kmData';
 
 const CHUNK_SIZE = 128;
 const CHUNKS_X = (TERRAIN_EXTENT_X * 2) / CHUNK_SIZE; // 24 (3072m)
@@ -69,6 +70,7 @@ function createTerrainMaterial(catalog: TextureCatalog): THREE.MeshStandardMater
     roughness: 0.94,
     metalness: 0.02,
   });
+  mat.defines = { USE_SF_MACRO_HORIZON: 1 };
 
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTexSand = { value: tSand };
@@ -89,9 +91,11 @@ function createTerrainMaterial(catalog: TextureCatalog): THREE.MeshStandardMater
         '#include <common>',
         `#include <common>
         attribute vec4 aBiome; // x=road, y=trail, z=stream, w=coal+terrace packed
+        attribute float aHorizonVis; // Shadow Flame 1.1 SF-MacroHorizon 6km prebaked mountain visibility
         varying vec3 vWorldPos;
         varying vec3 vWorldNormal;
-        varying vec4 vBiome;`
+        varying vec4 vBiome;
+        varying float vHorizonVis;`
       )
       .replace(
         '#include <worldpos_vertex>',
@@ -99,7 +103,8 @@ function createTerrainMaterial(catalog: TextureCatalog): THREE.MeshStandardMater
         vec4 wpTerrain = modelMatrix * vec4(transformed, 1.0);
         vWorldPos = wpTerrain.xyz;
         vWorldNormal = normalize(mat3(modelMatrix) * objectNormal);
-        vBiome = aBiome;`
+        vBiome = aBiome;
+        vHorizonVis = aHorizonVis;`
       );
 
     shader.fragmentShader = shader.fragmentShader
@@ -121,6 +126,7 @@ function createTerrainMaterial(catalog: TextureCatalog): THREE.MeshStandardMater
         varying vec3 vWorldPos;
         varying vec3 vWorldNormal;
         varying vec4 vBiome;
+        varying float vHorizonVis;
 
         // 37-degree rotated dual-scale anti-tiling sampler (eliminates visible repetition across 6km panoramas!)
         vec3 sampleDualRot(sampler2D tex, vec2 uv, float farMul) {
@@ -311,7 +317,7 @@ function createTerrainMaterial(catalog: TextureCatalog): THREE.MeshStandardMater
       );
   };
 
-  mat.customProgramCacheKey = () => 'kuroiso-3x6km-hyper-terrain-v4';
+  mat.customProgramCacheKey = () => 'kuroiso-3x6km-hyper-terrain-v5-sf11';
   return mat;
 }
 
@@ -332,6 +338,7 @@ function buildChunkGeometry(cx: number, cz: number, segs: number): THREE.BufferG
   const normals = new Float32Array(totalVerts * 3);
   const uvs = new Float32Array(totalVerts * 2);
   const biomes = new Float32Array(totalVerts * 4);
+  const horizonVis = new Float32Array(totalVerts);
 
   const normStep = Math.min(3.5, Math.max(1.5, step * 0.75));
 
@@ -359,6 +366,9 @@ function buildChunkGeometry(cx: number, cz: number, segs: number): THREE.BufferG
       biomes[idx * 4 + 2] = s.streamWeight;
       // Pack coalWeight (>0) or terraceWeight (<0) into w channel
       biomes[idx * 4 + 3] = s.coalWeight > 0.05 ? s.coalWeight : -s.terraceWeight;
+
+      // Shadow Flame 1.1 SF-MacroHorizon 6km mountain visibility (zero samplers!)
+      horizonVis[idx] = sampleMacroHorizonVis(wx, wz);
     }
   }
 
@@ -405,6 +415,7 @@ function buildChunkGeometry(cx: number, cz: number, segs: number): THREE.BufferG
       biomes[dst * 4 + 1] = biomes[src * 4 + 1];
       biomes[dst * 4 + 2] = biomes[src * 4 + 2];
       biomes[dst * 4 + 3] = biomes[src * 4 + 3];
+      horizonVis[dst] = horizonVis[src];
     }
     for (let k = 0; k < edge.length - 1; k++) {
       const t0 = edge[k];
@@ -441,6 +452,7 @@ function buildChunkGeometry(cx: number, cz: number, segs: number): THREE.BufferG
   geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
   geo.setAttribute('aBiome', new THREE.BufferAttribute(biomes, 4));
+  geo.setAttribute('aHorizonVis', new THREE.BufferAttribute(horizonVis, 1));
   geo.setIndex(new THREE.BufferAttribute(ptr === indices.length ? indices : indices.subarray(0, ptr), 1));
   geo.computeBoundingSphere();
   return geo;

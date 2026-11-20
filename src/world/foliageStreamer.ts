@@ -96,6 +96,7 @@ function createWindGrassMaterial(
     side: THREE.DoubleSide,
     alphaTest: 0.34,
   });
+  mat.defines = { USE_SF_CANOPY_SSS: 1 };
 
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uWindTime = windUniform;
@@ -435,21 +436,25 @@ export class FoliageStreamer {
       .getMaterial('foliage_green', { repeatX: 2, repeatY: 2, roughness: 0.86, tint: 0x9bbd8e, bumpScale: 0.04 })
       .clone();
     this.cedarLeafMat.vertexColors = true;
+    this.cedarLeafMat.defines = { USE_SF_CANOPY_SSS: 1 };
 
     this.broadLeafMat = catalog
       .getMaterial('shrub_foliage', { repeatX: 2, repeatY: 2, roughness: 0.86, tint: 0xd5e3a4, bumpScale: 0.05 })
       .clone();
     this.broadLeafMat.vertexColors = true;
+    this.broadLeafMat.defines = { USE_SF_CANOPY_SSS: 1 };
 
     this.farCedarMat = catalog
       .getMaterial('foliage_green', { repeatX: 2, repeatY: 2, roughness: 0.9, tint: 0x90b384, bumpScale: 0.0 })
       .clone();
     this.farCedarMat.vertexColors = true;
+    this.farCedarMat.defines = { USE_SF_CANOPY_SSS: 1 };
 
     this.farBroadMat = catalog
       .getMaterial('shrub_foliage', { repeatX: 2, repeatY: 2, roughness: 0.88, tint: 0xc8da96, bumpScale: 0.0 })
       .clone();
     this.farBroadMat.vertexColors = true;
+    this.farBroadMat.defines = { USE_SF_CANOPY_SSS: 1 };
 
     this.boulderGeo = new THREE.DodecahedronGeometry(1.0, 1);
     this.boulderMat = catalog.getMaterial('moss_rock_heavy', {
