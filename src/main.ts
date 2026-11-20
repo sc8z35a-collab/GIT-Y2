@@ -12,6 +12,9 @@ import {
   SECRET_BASE_POINT,
   SUMMIT_POINT,
   HIDDEN_PORT_POINT,
+  EAST_CLIFF_POINT,
+  WEST_BLUFF_POINT,
+  NORTH_CALDERA_POINT,
 } from './world/terrainMath';
 import { TerrainStreamer } from './world/terrainStreamer';
 import { FoliageStreamer } from './world/foliageStreamer';
@@ -21,9 +24,9 @@ import { buildAllHouses } from './world/houses';
 import { FirstPersonController } from './player/firstPersonController';
 import { GameHUD } from './ui/hud';
 
-// Atmospheric sky & aerial-perspective fog calibrated to Japanese mountain photography
+// Atmospheric sky & aerial-perspective fog calibrated to 3km x 6km Japanese volcanic mountain photography
 const FOG_COLOR = 0xb8d0e4;
-const FOG_DENSITY = 0.000175;
+const FOG_DENSITY = 0.000145;
 const SUN_DIRECTION = new THREE.Vector3(0.54, 0.68, 0.49).normalize();
 
 const RESOLUTION_CAPS: Record<ResolutionPreset, { maxW: number; maxH: number }> = {
@@ -37,7 +40,7 @@ const RESOLUTION_CAPS: Record<ResolutionPreset, { maxW: number; maxH: number }> 
  * matching ocean & terrain FogExp2 seamlessly, subtle solar scatter, and soft mountain clouds.
  */
 function createSkyDome(sunDir: THREE.Vector3): THREE.Mesh {
-  const geo = new THREE.SphereGeometry(16000, 32, 20);
+  const geo = new THREE.SphereGeometry(19500, 32, 20);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -134,6 +137,9 @@ const TELEPORT_PRESETS: Record<string, { x: number; z: number; yaw: number; pitc
   trail: { x: 355, z: -1245, yaw: 0.96, pitch: 0.12 },
   summit: { x: SUMMIT_POINT.x - 4.5, z: SUMMIT_POINT.z - 5.5, yaw: -2.46, pitch: -0.14 },
   port: { x: HIDDEN_PORT_POINT.x + 2.5, z: HIDDEN_PORT_POINT.z + 2.5, yaw: 0.785, pitch: -0.08 },
+  eastcliff: { x: EAST_CLIFF_POINT.x, z: EAST_CLIFF_POINT.z, yaw: -0.34, pitch: -0.14 },
+  westbluff: { x: WEST_BLUFF_POINT.x, z: WEST_BLUFF_POINT.z, yaw: -1.24, pitch: -0.15 },
+  caldera: { x: NORTH_CALDERA_POINT.x, z: NORTH_CALDERA_POINT.z, yaw: 1.22, pitch: -0.14 },
 };
 
 function bootstrap(): void {
@@ -169,12 +175,12 @@ function bootstrap(): void {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  // 2. Scene, aerial perspective mountain fog, and long-horizon camera (18km far for 865m summit!)
+  // 2. Scene, aerial perspective mountain fog, and long-horizon camera (22km far for 3km x 6km 865m summit!)
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(FOG_COLOR);
   scene.fog = new THREE.FogExp2(FOG_COLOR, FOG_DENSITY);
 
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / Math.max(1, window.innerHeight), 0.25, 18500);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / Math.max(1, window.innerHeight), 0.25, 22000);
 
   // 3. Sky Dome & Lighting (sun shadow frustum follows player across 2km x 5km!)
   const skyDome = createSkyDome(SUN_DIRECTION);

@@ -1,19 +1,22 @@
 import type { TerraceSpec } from '../core/types';
 
-export const ISLAND_HALF_W = 1000; // 2km East-West (-1000..+1000)
-export const ISLAND_HALF_L = 2500; // 5km North-South (-2500..+2500)
-export const TERRAIN_EXTENT_X = 1024; // 2048m total -> 16 chunks of 128m
-export const TERRAIN_EXTENT_Z = 2560; // 5120m total -> 40 chunks of 128m
+export const ISLAND_HALF_W = 1500; // 3km East-West (-1500..+1500)
+export const ISLAND_HALF_L = 3000; // 6km North-South (-3000..+3000)
+export const TERRAIN_EXTENT_X = 1536; // 3072m total -> 24 chunks of 128m
+export const TERRAIN_EXTENT_Z = 3072; // 6144m total -> 48 chunks of 128m
 
 // Key world landmarks
-export const SPAWN_POINT = { x: 42, z: 2158, yaw: Math.PI * 0.96 }; // 漂着浜 (Driftwood Cove)
-export const SUMMIT_POINT = { x: 80, z: -1480, y: 865.0 };          // 黒磯岳主峰 (865m)
+export const SPAWN_POINT = { x: 42, z: 2158, yaw: Math.PI * 0.96 }; // 漂着浜 (Driftwood Cove — 南大入江)
+export const SUMMIT_POINT = { x: 80, z: -1480, y: 865.0 };          // 黒磯岳主峰 (865m — 島最高峰)
 export const LOOKOUT_POINT = { x: 235, z: 540, y: 268.0 };          // 見晴らし坂 (image.png vista)
-export const MINE_PORTAL_POINT = { x: -145, z: -890, y: 348.0 };    // 旧黒磯炭鉱 1890 坑口予定地
+export const MINE_PORTAL_POINT = { x: -145, z: -890, y: 348.0 };    // 旧黒磯炭鉱 1890 第一坑口・地下坑道
 export const SECRET_BASE_POINT = { x: 430, z: -580, y: 376.0 };     // 子供たちの山奥の秘密基地
-export const HIDDEN_PORT_POINT = { x: -522, z: -1768, y: 2.8 };     // けもの道先の秘境旧港（建設案）
+export const HIDDEN_PORT_POINT = { x: -522, z: -1768, y: 2.8 };     // 北西リアス湾・旧黒磯秘境港
 export const PARK_POINT = { x: -52, z: 215, y: 242.0 };             // 見晴らし村営公園（下段村道東隣）
 export const KOBAN_POINT = { x: 91, z: 469, y: 239.0 };             // 黒磯駐在所（交番・村入口三叉路北東角）
+export const EAST_CLIFF_POINT = { x: 1110, z: 360, y: 155.0 };      // 東観音・東展望断崖（隆起海岸段丘）
+export const WEST_BLUFF_POINT = { x: -740, z: 120, y: 604.0 };      // 西屏風大展望台（廃村＆黒磯岳パノラマ）
+export const NORTH_CALDERA_POINT = { x: 375, z: -2140, y: 492.0 };  // 北カルデラ爆裂火口・外輪山展望
 
 export type SiteCategory = 'house' | 'shop' | 'koban' | 'park' | 'secret_base' | 'mine' | 'port';
 
@@ -290,13 +293,69 @@ export const GRADED_PATHS: GradedPathSpec[] = [
       [-600, -1330, 300.0],
       [-585, -1425, 245.0],
       [-575, -1505, 185.0],
-      [-545, -1575, 130.0],
-      [-480, -1635, 120.0],
-      [-442, -1690, 82.0],
-      [-455, -1722, 42.0],
-      [-472, -1748, 18.0],
+      [-545, -1575, 160.0],
+      [-445, -1625, 118.0],
+      [-380, -1675, 78.0],
+      [-442, -1722, 42.0],
+      [-472, -1750, 18.0],
       [-498, -1764, 6.0],
       [-522, -1768, 2.8],  // PORT01 Hidden Port Crescent Cove
+    ],
+  },
+
+  // 9. East Kannon Ridge & Uplifted Coastal Cliff Trail (東観音尾根〜東展望断崖への縦走獣道)
+  {
+    id: 'trail_east_ridge',
+    name: '東観音尾根・東展望断崖への獣道',
+    kind: 'trail',
+    halfWidth: 1.30,
+    blendWidth: 14.0,
+    points: [
+      [352, -525, 315.0],  // Branches cleanly off Summit Trail pt[3]
+      [480, -455, 385.0],
+      [620, -370, 470.0],
+      [770, -275, 560.0],
+      [915, -185, 645.0],  // 東観音連峰 主稜線肩
+      [965, -40, 560.0],
+      [1015, 105, 435.0],
+      [1065, 235, 290.0],
+      [1110, 360, 155.0],  // ★ 東展望断崖（東海岸段丘パノラマ）
+    ],
+  },
+
+  // 10. West Byobu Ridge & Volcanic Terrace Trail (西屏風連山・溶岩台地大展望獣道)
+  {
+    id: 'trail_west_terrace',
+    name: '西屏風連山・大展望への獣道',
+    kind: 'trail',
+    halfWidth: 1.30,
+    blendWidth: 14.0,
+    points: [
+      [-540, -1035, 425.0], // Branches cleanly off Forestry Road West Ridge end
+      [-645, -915, 445.0],
+      [-745, -765, 495.0],
+      [-825, -595, 545.0],
+      [-865, -415, 595.0],
+      [-855, -225, 610.0],  // 西屏風連山 主稜線
+      [-800, -45, 600.0],
+      [-740, 120, 604.0],   // ★ 西屏風大展望台（廃村全25軒＆865m黒磯岳を一望!）
+    ],
+  },
+
+  // 11. North Volcanic Caldera Rim Trail (黒磯岳865m山頂〜北カルデラ外輪山縦走路)
+  {
+    id: 'trail_north_caldera',
+    name: '北カルデラ外輪山・縦走獣道',
+    kind: 'trail',
+    halfWidth: 1.25,
+    blendWidth: 14.0,
+    points: [
+      [80, -1480, 865.0],   // ★ Starts directly at 865.0m Mt. Kuroiso Master Summit!
+      [190, -1575, 815.0],
+      [305, -1690, 755.0],
+      [395, -1820, 705.0],
+      [425, -1975, 665.0],
+      [375, -2140, 615.0],  // ★ 北カルデラ爆裂火口・外輪山展望（鬼ヶ崎＆外洋一望!）
     ],
   },
 ];
@@ -312,7 +371,7 @@ export const PLANNED_SITES: PlannedSite[] = [
   { id: 'S02',    name: '炭鉱購買部・大衆食堂「みなとや」', category: 'shop',      x:  -60, z:  -156, y: 258.0, radiusX: 9.6,  radiusZ: 6.8,  yaw: -2.25, blendMargin: 15.0, note: '1894年築・商業施設02・暖簾＆L字食堂カウンター・炭鉱購買部・2F大宴会座敷' },
   { id: 'P01',    name: '見晴らし村営公園（1964年整備）',   category: 'park',        x:  -52, z:   215, y: 242.0, radiusX: 15.5, radiusZ: 12.5, yaw:  0.15, blendMargin: 16.0, note: '1964年整備・登れるすべり台＆ブランコ＆ジャングルジム・本瓦東屋・水飲み場・管理小屋' },
   { id: 'B01',    name: '子供たちの山奥の秘密基地（1980）', category: 'secret_base', x:  430, z:  -580, y: 376.0, radiusX: 8.5,  radiusZ: 8.0,  yaw: -0.80, blendMargin: 14.0, note: '1980〜1985年・苔巨岩焚き火広場＆廃材トタン隠れ家・2F巨杉の樹上見張りやぐら' },
-  { id: 'M01',    name: '旧黒磯炭鉱 第一坑口・地下坑道（1890）', category: 'mine',  x: -145, z:  -890, y: 348.0, radiusX: 13.5, radiusZ: 12.0, yaw:  0.15, blendMargin: 16.0, note: '1890年開坑・全長135m地下坑道・安全灯室・火薬庫・水没排水坑・手掘り炭層＆山の神・斜坑大採炭空洞' },
+  { id: 'M01',    name: '旧黒磯炭鉱 第一坑口・地下坑道（1890）', category: 'mine',  x: -145, z:  -890, y: 348.0, radiusX: 13.5, radiusZ: 15.8, yaw:  0.15, blendMargin: 16.0, note: '1890年開坑・全長135m地下坑道・安全灯室・火薬庫・水没排水坑・手掘り炭層＆山の神・斜坑大採炭空洞' },
   { id: 'PORT01', name: '旧黒磯秘境港（石灯台・桟橋・海運倉庫）', category: 'port', x: -522, z: -1768, y:   2.8, radiusX: 16.0, radiusZ:  5.2,  yaw:  Math.PI * 0.25, blendMargin: 5.5, note: '1892年開港・22m木造桟橋・漁船黒磯丸・登れる石灯台・2F海運倉庫' },
 
   // --- Lower Hillside Road Houses (H01–H08: Y = 222m..242m) ---
@@ -372,7 +431,7 @@ export function isInsideMinePortalCutout(wx: number, wz: number): boolean {
   if (dx * dx + dz * dz > 1600) return false;
   const lx = dx * MINE_PORTAL_COS - dz * MINE_PORTAL_SIN;
   const lz = dx * MINE_PORTAL_SIN + dz * MINE_PORTAL_COS;
-  return lx >= -3.6 && lx <= 3.6 && lz >= -30.5 && lz <= -19.5;
+  return lx >= -3.6 && lx <= 3.6 && lz >= -30.5 && lz <= -15.5;
 }
 
 /** Fast check whether world (x, z) lies within any constructed structure's footprint (keeps trees off yards/portals) */
@@ -413,8 +472,8 @@ interface PathSegment {
 }
 
 const ACCEL_CELL = 128;
-const ACCEL_NX = Math.ceil((TERRAIN_EXTENT_X * 2) / ACCEL_CELL); // 16
-const ACCEL_NZ = Math.ceil((TERRAIN_EXTENT_Z * 2) / ACCEL_CELL); // 40
+const ACCEL_NX = Math.ceil((TERRAIN_EXTENT_X * 2) / ACCEL_CELL); // 24
+const ACCEL_NZ = Math.ceil((TERRAIN_EXTENT_Z * 2) / ACCEL_CELL); // 48
 
 const cellPaths: PathSegment[][] = Array.from({ length: ACCEL_NX * ACCEL_NZ }, () => []);
 const cellSites: PlannedSite[][] = Array.from({ length: ACCEL_NX * ACCEL_NZ }, () => []);
@@ -427,134 +486,257 @@ function worldToCell(v: number, extent: number, maxN: number): number {
   return clamp(Math.floor((v + extent) / ACCEL_CELL), 0, maxN - 1);
 }
 
+/** East Kannon Gorge centerline draining the 3km East Alpine Wing to East Sea-Cliff Cove */
+function getEastGorgeCenterZ(x: number): number {
+  return -360.0 + (x - 620.0) * 0.28 + Math.sin(x * 0.0085) * 48.0;
+}
+
+/** West Byobu Gorge centerline draining the 3km West Alpine Wing to West Basalt Bay */
+function getWestGorgeCenterZ(x: number): number {
+  return 180.0 - (x + 620.0) * 0.62 + Math.cos(x * 0.0078) * 52.0;
+}
+
 // ============================================================================
-// NATURAL 2KM x 5KM MOUNTAIN ISLAND GEOLOGY (BEFORE ROAD/TRAIL/TERRACE GRADING)
+// HYPER-REALISTIC 3KM x 6KM VOLCANIC-TECTONIC ISLAND GEOMORPHOLOGY
+// (Domain-warped tectonic ridges, Rias fjord coastline, North Volcanic Caldera,
+//  multi-watershed fluvial gorges, hydraulic gully flutes & marine terraces!)
 // ============================================================================
 export function getNaturalTerrainHeight(x: number, z: number): number {
-  // 1. Organic 2km x 5km volcanic-tectonic island silhouette
-  const nx = x / 960.0;
-  const nz = z / 2410.0;
-  const coastWarp = fbm2D(x * 0.00072, z * 0.00072, 3) * 0.13;
-  const taper = 1.0 - 0.14 * smoothstep(-1350, -2420, z) - 0.08 * smoothstep(1600, 2420, z);
+  // 1. Organic 3km x 6km Rias-Coast Volcanic Island Silhouette (bounded cleanly inside ±1536 x ±3072)
+  const nx = x / 1370.0;
+  const nz = z / 2810.0;
+  // Two-stage multi-frequency Rias coastline domain warp (creates natural jagged headlands & pocket bays!)
+  const coastWarp =
+    fbm2D(x * 0.00056 + 1.3, z * 0.00056 - 0.7, 4) * 0.145 +
+    fbm2D(x * 0.00175 - 2.1, z * 0.00175 + 1.4, 2) * 0.042;
+  const taper =
+    1.0 -
+    0.16 * smoothstep(-1850, -2900, z) -
+    0.10 * smoothstep(2050, 2920, z);
   const radial = Math.sqrt((nx / taper) * (nx / taper) + nz * nz) + coastWarp;
 
-  // Driftwood Cove bay carved cleanly on south shore (+42, +2290)
-  const driftBay = Math.exp(
-    -(Math.pow((x - 42) / 215.0, 2) + Math.pow((z - 2345) / 240.0, 2))
+  // ★ Bay 1: Sweeping 1.2km Southern Horseshoe Driftwood Bay (漂着湾) opening straight South-SE past SPAWN_POINT (42, 2158)
+  // Embraced on West by Cape Nishikurosaki (-910,+2440) and East by Cape Higashishirahama (+950,+2480)!
+  const driftBay =
+    Math.exp(-(Math.pow((x - 45) / 480.0, 2) + Math.pow((z - 2660) / 380.0, 2))) * 0.68 +
+    Math.exp(-(Math.pow((x - 42) / 215.0, 2) + Math.pow((z - 2395) / 145.0, 2))) * 0.44;
+  // Twin dramatic Southern Coastal Peninsulas stretching the 3km x 6km island cleanly down to Z ≈ +2820m!
+  const southCapesExtend =
+    Math.exp(-(Math.pow((x + 910) / 380.0, 2) + Math.pow((z - 2440) / 440.0, 2))) * 0.34 +
+    Math.exp(-(Math.pow((x - 950) / 390.0, 2) + Math.pow((z - 2480) / 450.0, 2))) * 0.36;
+
+  // ★ Bay 2: Deep Northwest Rias Fjord Sea Channel (黒磯北西リアス湾) opening straight NW (-X, -Z) from PORT01 (-522, -1768)!
+  const pDx = x + 522.0;
+  const pDz = z + 1768.0;
+  const alongNW = (-pDx - pDz) * 0.70710678; // 0 at quay, positive heading NW out to Pacific Ocean!
+  const perpNW = (pDx - pDz) * 0.70710678;   // perpendicular distance from fjord centerline
+  const fjordHalfW = 132.0 + Math.max(0, alongNW) * 0.26;
+  const portFjord =
+    smoothstep(-26.0, 28.0, alongNW) *
+    Math.exp(-Math.pow(perpNW / fjordHalfW, 2));
+
+  // ★ Bay 3 & 4: Scenic Rias Sea-Cliff Coves on East (東磯入江) & West (西磯湾) margins + North Caldera Sea Breach
+  const eastCove = Math.exp(-(Math.pow((x - 1350) / 210.0, 2) + Math.pow((z + 170) / 245.0, 2))) * 0.34;
+  const westCove = Math.exp(-(Math.pow((x + 1340) / 220.0, 2) + Math.pow((z - 760) / 260.0, 2))) * 0.32;
+  const northBreachBay = Math.exp(-(Math.pow((x - 10) / 210.0, 2) + Math.pow((z + 2790) / 220.0, 2))) * 0.30;
+
+  // Hard outer ocean frame guarantee so land NEVER touches the 3072m x 6144m outer map edge
+  const edgeClamp = Math.max(
+    smoothstep(1380, 1495, Math.abs(x)),
+    smoothstep(2850, 2985, Math.abs(z))
   );
 
-  // Hidden Port Crescent Cove carved cleanly on northwest shore (-610, -1815) so (-522,-1768) sits right on shore!
-  const portBay = Math.exp(
-    -(Math.pow((x + 615) / 185.0, 2) + Math.pow((z + 1820) / 175.0, 2))
-  );
-
-  const effDist = radial + driftBay * 0.36 + portBay * 0.24;
-  const landMask = 1.0 - smoothstep(0.74, 1.03, effDist);
-  const shelfMask = 1.0 - smoothstep(0.95, 1.24, effDist);
+  const effDist =
+    radial - southCapesExtend + driftBay + portFjord * 0.92 + eastCove + westCove + northBreachBay + edgeClamp * 0.65;
+  const landMask = 1.0 - smoothstep(0.75, 1.02, effDist);
+  const shelfMask = 1.0 - smoothstep(0.96, 1.24, effDist);
   if (shelfMask <= 0.0001) return -28.0;
 
-  // 2. Elevated Mountain Island Core Plateau (~235m central mountain-ringed village bowl!)
-  // Smoothly rises from coast inward to ~235m highland plateau, surrounded by higher mountain rings
-  const plateauCore = 232.0 * smoothstep(0.98, 0.44, effDist);
+  // 2. Tectonic Domain-Warped Coordinates (breaks ALL Gaussian symmetry into natural folded Japanese mountain spines!)
+  const wScale = 0.00082;
+  const warpX = x + fbm2D(x * wScale + 3.1, z * wScale - 1.7, 3) * 140.0;
+  const warpZ = z + fbm2D(x * wScale - 2.4, z * wScale + 4.3, 3) * 140.0;
 
-  // 3. Surrounding Rolling & Jagged Mountain Peaks (起伏ある山々)
-  // ★ Master Peak: Mt. Kuroiso Main Summit (黒磯岳主峰 = 865.0m at +80, -1480 — strictly highest peak on island!)
+  // Central mountain-ringed village highland core (~235m plateau)
+  const plateauCore = 232.0 * smoothstep(0.98, 0.42, effDist);
+
+  // 3. Multi-Range Volcanic & Tectonic Massifs across the 3km x 6km Island!
+  // ★ Master Peak: Mt. Kuroiso Main Summit (黒磯岳主峰 = strictly 865.0m at +80, -1480!)
   const mainPeak =
-    595.0 * Math.exp(-(Math.pow((x - 80) / 485.0, 2) + Math.pow((z + 1480) / 560.0, 2)));
+    575.0 * Math.exp(-(Math.pow((x - 80) / 510.0, 2) + Math.pow((z + 1480) / 540.0, 2)));
 
-  // Sub-peaks surrounding the 250m village bowl on ALL FOUR sides + northern alpine range
-  const nePeak =
-    235.0 * Math.exp(-(Math.pow((x - 610) / 340.0, 2) + Math.pow((z + 1320) / 400.0, 2)));
-  const nwPeak =
-    255.0 * Math.exp(-(Math.pow((x + 495) / 335.0, 2) + Math.pow((z + 1230) / 390.0, 2)));
-  const northCliffPeak =
-    250.0 * Math.exp(-(Math.pow((x + 120) / 350.0, 2) + Math.pow((z + 2060) / 330.0, 2)));
+  // ★ North Volcanic Caldera Amphitheater (北カルデラ爆裂火口 & 外輪山: Z = -1820..-2650!)
+  // Dramatic horseshoe volcanic rim wall (~620m–710m) surrounding a recessed explosion crater bowl!
+  const caldDx = (warpX - 35) / 415.0;
+  const caldDz = (warpZ + 2110) / 355.0;
+  const caldR = Math.hypot(caldDx, caldDz);
+  const calderaRim =
+    305.0 *
+    Math.exp(-Math.pow((caldR - 1.02) / 0.42, 2)) *
+    smoothstep(-1680, -1890, z) * // Keeps southern flank of Mt. Kuroiso clean below 865m!
+    (1.0 - 0.68 * smoothstep(-2340, -2580, z) * Math.exp(-Math.pow((x - 10) / 190.0, 2))); // North crater breach!
+  const calderaBowl = -175.0 * Math.exp(-Math.pow(caldR / 0.64, 2));
+  const northCapePeak =
+    195.0 * Math.exp(-(Math.pow((x - 240) / 340.0, 2) + Math.pow((z + 2580) / 280.0, 2))) +
+    185.0 * Math.exp(-(Math.pow((x + 410) / 300.0, 2) + Math.pow((z + 2420) / 300.0, 2)));
 
-  // East & West towering ridges enclosing the village bowl (matching image.png!)
-  const eastKannon =
-    415.0 * Math.exp(-(Math.pow((x - 765) / 295.0, 2) + Math.pow((z + 60) / 680.0, 2)));
-  const westByobu =
-    385.0 * Math.exp(-(Math.pow((x + 710) / 315.0, 2) + Math.pow((z - 120) / 680.0, 2)));
+  // ★ Brand-New 3km East Alpine Wing: East Kannon Range (東観音連峰 ~680m) + East White-Cliff Cape!
+  const eastKannonMain =
+    395.0 * Math.exp(-(Math.pow((warpX - 885) / 365.0, 2) + Math.pow((warpZ + 120) / 620.0, 2)));
+  const eastKannonSouth =
+    295.0 * Math.exp(-(Math.pow((warpX - 965) / 340.0, 2) + Math.pow((warpZ - 820) / 520.0, 2)));
+  const eastNorthSpur =
+    285.0 * Math.exp(-(Math.pow((warpX - 745) / 360.0, 2) + Math.pow((warpZ + 1240) / 460.0, 2)));
+  const eastWhiteCape =
+    230.0 * Math.exp(-(Math.pow((x - 960) / 350.0, 2) + Math.pow((z - 2360) / 440.0, 2)));
 
-  // Southeast & Southwest outer ring ridges enclosing the south of the village
-  const seRing =
-    275.0 * Math.exp(-(Math.pow((x - 650) / 335.0, 2) + Math.pow((z - 1050) / 520.0, 2)));
-  const swRing =
-    255.0 * Math.exp(-(Math.pow((x + 610) / 335.0, 2) + Math.pow((z - 1120) / 520.0, 2)));
+  // ★ Brand-New 3km West Alpine Wing: West Byobu Stratified Range (西屏風連山 ~640m) + West Basalt Cape!
+  const westByobuMain =
+    365.0 * Math.exp(-(Math.pow((warpX + 915) / 360.0, 2) + Math.pow((warpZ + 60) / 640.0, 2)));
+  const westByobuSouth =
+    285.0 * Math.exp(-(Math.pow((warpX + 960) / 345.0, 2) + Math.pow((warpZ - 860) / 540.0, 2)));
+  const westNorthRidge =
+    255.0 * Math.exp(-(Math.pow((warpX + 960) / 310.0, 2) + Math.pow((warpZ + 1090) / 360.0, 2)));
+  const westBlackCape =
+    235.0 * Math.exp(-(Math.pow((x + 930) / 350.0, 2) + Math.pow((z - 2330) / 440.0, 2)));
 
-  // South bowl rim spurs & twin coastal headlands flanking Driftwood Cove
-  const sRimE =
-    145.0 * Math.exp(-(Math.pow((x - 310) / 240.0, 2) + Math.pow((z - 1500) / 300.0, 2)));
-  const sRimW =
-    130.0 * Math.exp(-(Math.pow((x + 250) / 240.0, 2) + Math.pow((z - 1540) / 300.0, 2)));
-  const swCape =
-    155.0 * Math.exp(-(Math.pow((x + 520) / 240.0, 2) + Math.pow((z - 2050) / 280.0, 2)));
-  const seCape =
-    180.0 * Math.exp(-(Math.pow((x - 550) / 250.0, 2) + Math.pow((z - 2010) / 280.0, 2)));
+  // Inner village-enclosing mountain flanks (preserving iconic image.png amphitheater bowl around the 25 houses!)
+  const innerEastWall =
+    155.0 * Math.exp(-(Math.pow((x - 595) / 240.0, 2) + Math.pow((z - 20) / 560.0, 2)));
+  const innerWestWall =
+    145.0 * Math.exp(-(Math.pow((x + 565) / 240.0, 2) + Math.pow((z - 150) / 560.0, 2)));
+  const southBowlRim =
+    130.0 * Math.exp(-(Math.pow((x - 360) / 260.0, 2) + Math.pow((z - 1460) / 320.0, 2))) +
+    125.0 * Math.exp(-(Math.pow((x + 310) / 260.0, 2) + Math.pow((z - 1500) / 320.0, 2)));
 
-  // Protective natural headland sheltering the Northwest Hidden Port Cove
-  const portHeadland =
-    98.0 * Math.exp(-(Math.pow((x + 560) / 115.0, 2) + Math.pow((z + 1575) / 120.0, 2)));
+  // Protective Rias headlands framing Hidden Port Fjord on BOTH sides (keep deep sea channel 100% open!)
+  const portHeadlandS =
+    118.0 * Math.exp(-(Math.pow((x + 690) / 145.0, 2) + Math.pow((z + 1480) / 140.0, 2)));
+  const portHeadlandN =
+    165.0 * Math.exp(-(Math.pow((x + 340) / 160.0, 2) + Math.pow((z + 2060) / 155.0, 2)));
 
-  // 4. Sculpted Central Village Hillside Slope + Northern Coal Gorge valley
+  // 4. Sculpted Central Village Hillside Slope & Multi-Watershed Fluvial V-Gorges!
   const villageZone = Math.exp(
-    -(Math.pow((x - 60) / 420.0, 2) + Math.pow((z - 100) / 680.0, 2))
+    -(Math.pow((x - 60) / 415.0, 2) + Math.pow((z - 100) / 670.0, 2))
   );
-  // Kuroiso Gorge incision down the western edge of the village bowl
+
+  // Gorge A: Primary Kuroiso Gorge carving down the west edge of the abandoned village
   const streamX = getStreamCenterX(z);
   const dStream = Math.abs(x - streamX);
-  const gorgeCut =
-    -58.0 *
+  const mainGorgeCut =
+    -62.0 *
     Math.exp(-Math.pow(dStream / 72.0, 2)) *
     smoothstep(-880, -320, z) *
     smoothstep(2180, 1650, z);
 
-  // Natural coal valley draw leading up to M01 (-145, -890) beneath the main peak cliff
-  const coalDraw =
-    -112.0 *
-    Math.exp(-(Math.pow((x + 150) / 165.0, 2) + Math.pow((z + 820) / 210.0, 2))) *
-    smoothstep(-965, -895, z);
+  // Gorge B: East Kannon V-Valley draining east wing to East Sea-Cliff Cove
+  const dEastGorge = Math.abs(z - getEastGorgeCenterZ(x));
+  const eastGorgeCut =
+    -78.0 *
+    Math.exp(-Math.pow(dEastGorge / 88.0, 2)) *
+    smoothstep(540, 820, x) *
+    (1.0 - smoothstep(1340, 1480, x));
 
-  // Subtle eastward slope across the village so houses sit on stepped mountain flank roads!
+  // Gorge C: West Byobu Ravine draining west wing to West Basalt Bay
+  const dWestGorge = Math.abs(z - getWestGorgeCenterZ(x));
+  const westGorgeCut =
+    -74.0 *
+    Math.exp(-Math.pow(dWestGorge / 92.0, 2)) *
+    smoothstep(-540, -820, x) *
+    (1.0 - smoothstep(-1340, -1480, x));
+
+  // Gorge D: North Caldera Breach Canyon carving northward from crater floor to northern sea
+  const northGorgeCut =
+    -95.0 *
+    Math.exp(-Math.pow((x - 10 - Math.sin(z * 0.006) * 35) / 85.0, 2)) *
+    smoothstep(-1950, -2250, z) *
+    smoothstep(-2880, -2620, z);
+
+  // Natural coal valley draw leading up to M01 (-145, -890) with solid rising basalt cliff wall starting at Z = -912!
+  const coalDraw =
+    -110.0 *
+    Math.exp(-(Math.pow((x + 150) / 165.0, 2) + Math.pow((z + 805) / 195.0, 2))) *
+    smoothstep(-914, -885, z);
+
+  // Solid basalt overburden buttress directly north of M01 (-145,-890) so the 135m coal mine stays deep inside rock!
+  const mineOverburden =
+    92.0 *
+    Math.exp(-(Math.pow((x + 160) / 150.0, 2) + Math.pow((z + 968) / 95.0, 2))) *
+    smoothstep(-910, -928, z);
+
+  // Subtle eastward slope across village bowl so the 3 stepped village roads hug the hillside
   const hillsideTilt = villageZone * ((x + 80) * 0.145 - (z - 180) * 0.032);
 
-  // 5. Multi-scale Alpine Ridged Erosion & Sharp Mountain Spurs
-  const macroRidge = ridgedFbm2D(x * 0.0018, z * 0.0018, 4);
-  const midRidge = ridgedFbm2D(x * 0.0054, z * 0.0054, 3);
-  const fineNoise = fbm2D(x * 0.022, z * 0.022, 2);
+  // 5. ★ MULTI-SCALE DOMAIN-WARPED TECTONIC RIDGES + HYDRAULIC GULLY EROSION FLUTES!
+  const macroRidge = ridgedFbm2D(warpX * 0.00145, warpZ * 0.00145, 5);
+  const spurRidge = ridgedFbm2D(
+    warpX * 0.0044 + macroRidge * 0.55,
+    warpZ * 0.0044 - macroRidge * 0.55,
+    4
+  );
+  const fineNoise = fbm2D(x * 0.021, z * 0.021, 2);
 
-  const mountainRugged = 1.0 - villageZone * 0.58;
+  // Slope-aligned rain-erosion rills / V-gullies (雨水侵食ガリー) etched down steep mountain walls!
+  const gullyWave = 1.0 - Math.abs(valueNoise2D(warpX * 0.0135 + spurRidge * 1.25, warpZ * 0.0135 - spurRidge * 1.25));
+  const gullyCarve = -Math.pow(gullyWave, 3.2) * 16.5;
+
+  const mountainRugged = 1.0 - villageZone * 0.62;
   const geology =
-    (macroRidge - 0.36) * (88.0 * mountainRugged + 22.0) +
-    (midRidge - 0.42) * (22.0 * mountainRugged + 6.0) +
-    fineNoise * 3.2;
+    (macroRidge - 0.37) * (96.0 * mountainRugged + 20.0) +
+    (spurRidge - 0.42) * (29.0 * mountainRugged + 6.0) +
+    gullyCarve * mountainRugged * smoothstep(25.0, 140.0, plateauCore + mainPeak + eastKannonMain + westByobuMain) +
+    fineNoise * 3.0;
 
   // Combine elevation
   let inlandH =
     plateauCore +
     mainPeak +
-    nePeak +
-    nwPeak +
-    northCliffPeak +
-    eastKannon +
-    westByobu +
-    seRing +
-    swRing +
-    sRimE +
-    sRimW +
-    swCape +
-    seCape +
-    portHeadland +
-    gorgeCut +
+    calderaRim +
+    calderaBowl +
+    northCapePeak +
+    eastKannonMain +
+    eastKannonSouth +
+    eastNorthSpur +
+    eastWhiteCape +
+    westByobuMain +
+    westByobuSouth +
+    westNorthRidge +
+    westBlackCape +
+    innerEastWall +
+    innerWestWall +
+    southBowlRim +
+    portHeadlandS +
+    portHeadlandN +
+    mainGorgeCut +
+    eastGorgeCut +
+    westGorgeCut +
+    northGorgeCut +
     coalDraw +
+    mineOverburden +
     hillsideTilt +
     geology;
 
-  // Fine-calibrate the exact 865.0m Master Summit crown at (X:+80, Z:-1480) — proudest point on Kuroiso-jima!
+  // ★ Subtle Uplifted Volcanic Marine Terraces / Lava Benches (隆起海岸段丘: 35m–175m on outer 3km flanks!)
+  const outerFlankMask = smoothstep(420.0, 920.0, Math.abs(x)) * (1.0 - villageZone);
+  if (outerFlankMask > 0.02 && inlandH > 22.0 && inlandH < 210.0) {
+    const benchPhase = inlandH * 0.092;
+    const terraceStep = -Math.sin(benchPhase) * 6.2 * outerFlankMask * smoothstep(22.0, 48.0, inlandH) * (1.0 - smoothstep(165.0, 210.0, inlandH));
+    inlandH += terraceStep;
+  }
+
+  // Strictly guarantee Mt. Kuroiso Master Summit (80, -1480, 865.0m) is the single highest point on the 3km x 6km island!
   const summitDist = Math.hypot(x - SUMMIT_POINT.x, z - SUMMIT_POINT.z);
-  if (summitDist < 220.0) {
-    const sw = 1.0 - smoothstep(12.0, 220.0, summitDist);
-    const targetSummit = 865.0 - Math.max(0, summitDist - 10.0) * 0.58 + fineNoise * 0.5;
+  const capW = smoothstep(85.0, 225.0, summitDist);
+  if (capW > 0 && inlandH > 720.0) {
+    const capped = 720.0 + Math.tanh((inlandH - 720.0) / 52.0) * 48.0;
+    inlandH = inlandH * (1 - capW) + capped * capW;
+  }
+
+  // Fine-calibrate the exact 865.0m Master Summit crown at (X:+80, Z:-1480) — proudest point on Kuroiso-jima!
+  if (summitDist < 235.0) {
+    const sw = 1.0 - smoothstep(12.0, 235.0, summitDist);
+    const summitCrag = (spurRidge - 0.45) * 8.0 * smoothstep(16.0, 120.0, summitDist);
+    const targetSummit = 865.0 - Math.max(0, summitDist - 10.0) * 0.56 + summitCrag + fineNoise * 0.5;
     inlandH = inlandH * (1 - sw) + targetSummit * sw;
   }
 
@@ -565,33 +747,40 @@ export function getNaturalTerrainHeight(x: number, z: number): number {
 
   // Carve the secluded northwest harbor cove approach so PORT01 (-522,-1768) sits cleanly at Y=2.8m beside deep calm water
   const portCoveBasin = Math.exp(
-    -(Math.pow((x + 530) / 86.0, 2) + Math.pow((z + 1775) / 86.0, 2))
+    -(Math.pow((x + 530) / 88.0, 2) + Math.pow((z + 1775) / 88.0, 2))
   );
   inlandH = inlandH * (1 - portCoveBasin * 0.90) + 2.4 * (portCoveBasin * 0.90);
 
-  // Island shoreline dropoff into ocean seabed
+  // Island shoreline dropoff into ocean seabed + rocky wave-cut intertidal shelf (海食棚)!
   const seaFloor = -28.0 * (1.0 - shelfMask) - 2.6 * shelfMask;
-  let h = seaFloor + (inlandH - seaFloor) * Math.pow(landMask, 0.54);
+  let h = seaFloor + (inlandH - seaFloor) * Math.pow(landMask, 0.52);
 
-  // Gentle sandy crescent beach at Driftwood Cove (+42, +2160)
+  // Natural wave-cut coastal basalt bench (海食棚: Y ≈ 0.5..3.5m on rocky headlands, suppressed at sandy bays!)
+  const rockyCapeMask = (1.0 - smoothstep(0.05, 0.25, driftBay + portFjord)) * smoothstep(0.68, 0.88, effDist);
+  if (rockyCapeMask > 0.05 && h > -2.0 && h < 14.0) {
+    const benchW = Math.exp(-Math.pow((h - 2.2) / 3.2, 2)) * rockyCapeMask * 0.55;
+    h = h * (1 - benchW) + (1.6 + fineNoise * 0.45) * benchW;
+  }
+
+  // Gentle sandy crescent beach at Driftwood Cove (+42, +2160) opening straight South-SE to Pacific horizon!
   const driftBeach = Math.exp(
-    -(Math.pow((x - 42) / 105.0, 2) + Math.pow((z - 2165) / 72.0, 2))
+    -(Math.pow((x - 42) / 120.0, 2) + Math.pow((z - 2168) / 82.0, 2))
   );
   if (driftBeach > 0.005) {
-    const beachH = clamp((2205 - z) * 0.045 + 0.15, -2.5, 6.2);
+    const beachH = clamp((2205 - z) * 0.045 + 0.15, -3.5, 6.2);
     h = h * (1 - driftBeach) + beachH * driftBeach;
   }
 
-  // Gentle shore shelf at Hidden Port Cove (-522, -1768) dropping cleanly off seawall into deep harbor water
+  // Gentle shore shelf at Hidden Port Cove (-522, -1768) dropping cleanly off seawall into deep NW Rias Fjord!
   const portShore = Math.exp(
-    -(Math.pow((x + 522) / 66.0, 2) + Math.pow((z + 1768) / 66.0, 2))
+    -(Math.pow((x + 522) / 72.0, 2) + Math.pow((z + 1768) / 72.0, 2))
   );
   if (portShore > 0.005) {
     // SE axis along (+0.707, +0.707): seAlong=0 is quay apron (2.8m), seAlong<-4.8 drops into deep cove water under pier!
     const seAlong = ((x + 522) + (z + 1768)) * 0.7071;
     const harborH = seAlong >= -4.8
       ? clamp(2.8 + Math.max(0, seAlong - 4.0) * 0.24, 2.6, 16.0)
-      : clamp(-2.2 + (seAlong + 4.8) * 0.30, -9.0, -1.6);
+      : clamp(-2.2 + (seAlong + 4.8) * 0.30, -10.0, -1.6);
     h = h * (1 - portShore) + harborH * portShore;
   }
 
@@ -653,7 +842,7 @@ function drapePathOntoMountain(
   }
 
   // Phase 2: Pure bidirectional slope-limit convergence so EVERY segment is guaranteed walkable <= maxSlopeDeg
-  for (let iter = 0; iter < 24; iter++) {
+  for (let iter = 0; iter < 96; iter++) {
     for (let i = 0; i < n - 1; i++) clampEdge(i, i + 1);
     for (let i = n - 2; i >= 0; i--) clampEdge(i, i + 1);
   }
@@ -663,7 +852,7 @@ function drapePathOntoMountain(
   }
 }
 
-// Drape mountain/coastal paths onto real slopes & pre-bin all segments + 32 sites into 128m spatial hash (< 1ms!)
+// Drape ALL 11 mountain/coastal paths onto real 3km x 6km slopes & pre-bin into 128m spatial hash (< 1.5ms!)
 (function buildSpatialAccel() {
   const byId = new Map(GRADED_PATHS.map((p) => [p.id, p]));
 
@@ -671,23 +860,48 @@ function drapePathOntoMountain(
   if (coastal) drapePathOntoMountain(coastal, new Set([0, coastal.points.length - 1]), 18);
 
   const forestry = byId.get('road_forestry');
-  if (forestry) drapePathOntoMountain(forestry, new Set([0, 5]), 22);
+  if (forestry) drapePathOntoMountain(forestry, new Set([0, 4, 5, 6]), 16);
 
   const summitTrail = byId.get('trail_summit_865');
-  if (summitTrail) drapePathOntoMountain(summitTrail, new Set([0, summitTrail.points.length - 1]), 27);
+  if (summitTrail) drapePathOntoMountain(summitTrail, new Set([0, summitTrail.points.length - 1]), 24);
 
   // Sync Secret Base trailhead seamlessly to draped Summit Trail junction pt[3]
   const secretTrail = byId.get('trail_secret_base');
   if (secretTrail && summitTrail) {
     secretTrail.points[0][2] = summitTrail.points[3][2];
-    drapePathOntoMountain(secretTrail, new Set([0, secretTrail.points.length - 1]), 22);
+    drapePathOntoMountain(secretTrail, new Set([0, 3, secretTrail.points.length - 1]), 18);
   }
 
   // Sync Hidden Port trailhead seamlessly to draped Forestry Road end
   const portTrail = byId.get('trail_hidden_port');
   if (portTrail && forestry) {
     portTrail.points[0][2] = forestry.points[forestry.points.length - 1][2];
-    drapePathOntoMountain(portTrail, new Set([0, portTrail.points.length - 1]), 27);
+    drapePathOntoMountain(portTrail, new Set([0, 11, portTrail.points.length - 1]), 24.5);
+  }
+
+  // ★ Drape 3 Brand-New 3km x 6km Alpine Ridge & Headland Trails!
+  const eastTrail = byId.get('trail_east_ridge');
+  if (eastTrail && summitTrail) {
+    eastTrail.points[0][2] = summitTrail.points[3][2];
+    drapePathOntoMountain(eastTrail, new Set([0]), 25);
+    const lastE = eastTrail.points[eastTrail.points.length - 1];
+    EAST_CLIFF_POINT.y = lastE[2];
+  }
+
+  const westTrail = byId.get('trail_west_terrace');
+  if (westTrail && forestry) {
+    westTrail.points[0][2] = forestry.points[forestry.points.length - 1][2];
+    drapePathOntoMountain(westTrail, new Set([0]), 25);
+    const lastW = westTrail.points[westTrail.points.length - 1];
+    WEST_BLUFF_POINT.y = lastW[2];
+  }
+
+  const northCalderaTrail = byId.get('trail_north_caldera');
+  if (northCalderaTrail && summitTrail) {
+    northCalderaTrail.points[0][2] = SUMMIT_POINT.y;
+    drapePathOntoMountain(northCalderaTrail, new Set([0]), 25);
+    const lastN = northCalderaTrail.points[northCalderaTrail.points.length - 1];
+    NORTH_CALDERA_POINT.y = lastN[2];
   }
 
   for (const path of GRADED_PATHS) {
@@ -872,13 +1086,32 @@ export function sampleTerrain(x: number, z: number): TerrainSample {
     h = h * (1 - maxW) + gradedY * maxW;
   }
 
-  // 3. Stream proximity (for damp creek bed & mossy rocks)
+  // 3. Multi-Watershed Stream & Gorge Creek Proximity (damp cobbles, mossy ravine floors & wet rock glint!)
   const streamX = getStreamCenterX(z);
   const dStream = Math.abs(x - streamX);
-  const streamWeight =
-    (1.0 - smoothstep(4.5, 18.0, dStream)) *
+  const mainStreamW =
+    (1.0 - smoothstep(4.5, 19.0, dStream)) *
     smoothstep(-850, -520, z) *
     smoothstep(2180, 2000, z);
+  const eastStreamW =
+    x > 540
+      ? (1.0 - smoothstep(4.5, 22.0, Math.abs(z - getEastGorgeCenterZ(x)))) *
+        smoothstep(560, 720, x) *
+        (1.0 - smoothstep(1300, 1440, x))
+      : 0;
+  const westStreamW =
+    x < -540
+      ? (1.0 - smoothstep(4.5, 22.0, Math.abs(z - getWestGorgeCenterZ(x)))) *
+        smoothstep(-560, -720, x) *
+        (1.0 - smoothstep(-1300, -1440, x))
+      : 0;
+  const northStreamW =
+    z < -1950
+      ? (1.0 - smoothstep(4.5, 24.0, Math.abs(x - 10 - Math.sin(z * 0.006) * 35))) *
+        smoothstep(-1950, -2120, z) *
+        smoothstep(-2860, -2640, z)
+      : 0;
+  const streamWeight = Math.max(mainStreamW, eastStreamW, westStreamW, northStreamW);
 
   // 4. Coal slate scree around 1890 Coal Mine site
   const dMine = Math.hypot(x - MINE_PORTAL_POINT.x, z - MINE_PORTAL_POINT.z);

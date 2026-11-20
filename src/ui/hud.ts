@@ -12,6 +12,9 @@ import {
   SECRET_BASE_POINT,
   SUMMIT_POINT,
   HIDDEN_PORT_POINT,
+  EAST_CLIFF_POINT,
+  WEST_BLUFF_POINT,
+  NORTH_CALDERA_POINT,
   getTerrainHeight,
 } from '../world/terrainMath';
 import type { TerrainStreamStats } from '../world/terrainStreamer';
@@ -47,8 +50,11 @@ interface QuickLandmark {
 }
 
 const QUICK_LANDMARKS: QuickLandmark[] = [
-  { label: '漂着浜（目覚め地点）', elev: '2m', x: SPAWN_POINT.x, z: SPAWN_POINT.z, yaw: SPAWN_POINT.yaw, pitch: 0.04 },
+  { label: '漂着浜（目覚め地点・南大入江）', elev: '2m', x: SPAWN_POINT.x, z: SPAWN_POINT.z, yaw: SPAWN_POINT.yaw, pitch: 0.04 },
   { label: '見晴らし坂（廃村展望）', elev: '268m', x: LOOKOUT_POINT.x, z: LOOKOUT_POINT.z, yaw: 0.56, pitch: -0.05 },
+  { label: '東観音・東展望断崖（隆起海岸段丘）', elev: `${Math.round(EAST_CLIFF_POINT.y)}m`, x: EAST_CLIFF_POINT.x, z: EAST_CLIFF_POINT.z, yaw: -0.34, pitch: -0.14 },
+  { label: '西屏風大展望台（廃村＆黒磯岳一望）', elev: `${Math.round(WEST_BLUFF_POINT.y)}m`, x: WEST_BLUFF_POINT.x, z: WEST_BLUFF_POINT.z, yaw: -1.24, pitch: -0.15 },
+  { label: '北カルデラ外輪山展望（爆裂火口）', elev: `${Math.round(NORTH_CALDERA_POINT.y)}m`, x: NORTH_CALDERA_POINT.x, z: NORTH_CALDERA_POINT.z, yaw: 1.22, pitch: -0.14 },
   { label: '山頂獣道・東尾根中腹', elev: '629m', x: 355, z: -1245, yaw: 0.96, pitch: 0.12 },
   { label: '★ 黒磯岳 主峰山頂', elev: '865m', x: SUMMIT_POINT.x - 4.5, z: SUMMIT_POINT.z - 5.5, yaw: -2.46, pitch: -0.14 },
 ];
@@ -66,8 +72,17 @@ function classifyZone(x: number, y: number, z: number): string {
   if (Math.hypot(x - SUMMIT_POINT.x, z - SUMMIT_POINT.z) < 85 && y > 800) {
     return '黒磯岳 主峰山頂（標高865m）';
   }
-  if (Math.hypot(x - HIDDEN_PORT_POINT.x, z - HIDDEN_PORT_POINT.z) < 110) {
-    return '旧黒磯秘境港（北西天然入江）';
+  if (Math.hypot(x - NORTH_CALDERA_POINT.x, z - NORTH_CALDERA_POINT.z) < 120) {
+    return '北カルデラ外輪山展望（爆裂火口）';
+  }
+  if (Math.hypot(x - EAST_CLIFF_POINT.x, z - EAST_CLIFF_POINT.z) < 130) {
+    return '東観音・東展望断崖（隆起海岸段丘）';
+  }
+  if (Math.hypot(x - WEST_BLUFF_POINT.x, z - WEST_BLUFF_POINT.z) < 130) {
+    return '西屏風大展望台（西連山主稜線）';
+  }
+  if (Math.hypot(x - HIDDEN_PORT_POINT.x, z - HIDDEN_PORT_POINT.z) < 115) {
+    return '旧黒磯秘境港（北西リアス湾）';
   }
   if (Math.hypot(x - SECRET_BASE_POINT.x, z - SECRET_BASE_POINT.z) < 65) {
     return '子供たちの山奥の秘密基地 (B01)';
@@ -81,8 +96,26 @@ function classifyZone(x: number, y: number, z: number): string {
   if (Math.hypot(x - PARK_POINT.x, z - PARK_POINT.z) < 42) {
     return '見晴らし村営公園 (P01)';
   }
+  if (z < -2350) {
+    return '鬼ヶ崎・北端火山断崖（カルデラ海蝕口）';
+  }
+  if (z < -1820 && x > -340 && x < 580) {
+    return '北カルデラ爆裂火口・外輪山';
+  }
+  if (z > 2050 && x < -420) {
+    return '西黒崎（南西玄武岩岬）';
+  }
+  if (z > 2050 && x > 460) {
+    return '東白浜岬（南東断崖半島）';
+  }
   if (z > 1950 && y < 35) {
-    return '漂着浜（南端入江）';
+    return '漂着浜（南大入江）';
+  }
+  if (x > 640) {
+    return '東観音連峰・東海岸段丘';
+  }
+  if (x < -640) {
+    return '西屏風連山・西断崖山系';
   }
   if (z > 650 && z <= 1950) {
     return '海岸林道・南山腹斜面';
@@ -131,9 +164,9 @@ export class GameHUD {
   private touchEnabled = false;
   private lastUiSync = 0;
 
-  // Map coordinate transform constants (North-up 2km x 5km canvas)
-  private readonly MAP_W = 220;
-  private readonly MAP_H = 550;
+  // Map coordinate transform constants (exact 1:2 aspect ratio North-up 3km x 6km canvas)
+  private readonly MAP_W = 240;
+  private readonly MAP_H = 480;
 
   constructor(
     root: HTMLElement,
@@ -241,11 +274,11 @@ export class GameHUD {
       <!-- Driftwood Cove Wake-Up Intro -->
       <div class="wakeup-overlay ${skipIntro ? 'hidden' : ''}" id="wakeup-overlay">
         <div class="wakeup-card">
-          <div class="wakeup-eyebrow">KUROISO-JIMA 1985 — 2KM × 5KM ISOLATED MOUNTAIN ISLAND</div>
-          <h1 class="wakeup-title">黒磯島 — 1985年廃村探索（全${totalBuiltCount}拠点 完全公開）</h1>
+          <div class="wakeup-eyebrow">KUROISO-JIMA 1985 — 3KM × 6KM HYPER-REALISTIC VOLCANIC ISLAND</div>
+          <h1 class="wakeup-title">黒磯島 — 3km×6km 超リアル地形＆全${totalBuiltCount}拠点</h1>
           <p class="wakeup-story">
             冷たい砂と波音の中で目を覚ました。あたり一面は見渡す限りの外洋、救助は来ない。<br/>
-            山腹斜面に建ち並ぶ<strong>伝統瓦木造民家全${builtHouseCount}軒</strong>・<strong>商業施設${builtShopCount}軒</strong>・<strong>黒磯駐在所（交番）</strong>・<strong>見晴らし村営公園</strong>・<strong>子供たちの山奥の秘密基地</strong>・<strong>秘境の旧港</strong>、そして黒磯岳の岩盤へ135m潜る<strong>1890年開坑の旧黒磯炭鉱地下坑道</strong>まで全${totalBuiltCount}拠点すべて探索可能。
+            リアス式断崖・北カルデラ爆裂火口・東観音連峰・西屏風連山が広がる<strong>3km×6km（18km²）の火山孤島</strong>に、<strong>伝統瓦木造民家全${builtHouseCount}軒</strong>・<strong>商業施設${builtShopCount}軒</strong>・<strong>黒磯駐在所</strong>・<strong>村営公園</strong>・<strong>秘密基地</strong>・<strong>秘境旧港</strong>、そして地下135mへ潜る<strong>1890年旧黒磯炭鉱</strong>まで全${totalBuiltCount}拠点すべて探索可能。
           </p>
           <div class="wakeup-actions">
             <button class="btn-primary" id="btn-wake-start">立ち上がって探索を始める</button>
@@ -259,10 +292,10 @@ export class GameHUD {
         <div class="hud-location">
           <div class="hud-zone-name">
             <span class="hud-zone-dot"></span>
-            <span id="hud-zone">漂着浜（南端入江）</span>
+            <span id="hud-zone">漂着浜（南大入江）</span>
           </div>
           <div class="hud-meta-row">
-            <span id="hud-elev">標高 2.1m</span>
+            <span id="hud-elev">標高 2.2m</span>
             <span id="hud-compass">北 0°</span>
           </div>
           <div class="hud-site-hint" id="hud-site-hint"></div>
@@ -285,7 +318,7 @@ export class GameHUD {
       <div class="hud-reticle"></div>
 
       <div class="hud-controls-hint">
-        WASD 移動 · Shift ダッシュ · Space 跳躍 · C しゃがむ · マウス 視点 · M 2km×5km地形図
+        WASD 移動 · Shift ダッシュ · Space 跳躍 · C しゃがむ · マウス 視点 · M 3km×6km地形図
       </div>
 
       <!-- Mobile Landscape Dual-Touch Layer -->
@@ -344,21 +377,21 @@ export class GameHUD {
             </div>
 
             <div class="settings-note">
-              <strong>2km×5km ストリーミング＋32樹種高密度森林＆全${totalBuiltCount}拠点GPUバッチ稼働中</strong><br/>
-              ・4段階マルチLOD地形チャンク（640区画を毎フレーム4.2ms予算で動的ロード＆破棄）<br/>
+              <strong>3km×6km（18km²）超リアル火山地形＋5段階LOD＆全${totalBuiltCount}拠点稼働中</strong><br/>
+              ・5段階マルチLOD地形チャンク（1,152区画を毎フレーム4.2ms予算で動的ロード・12バイオーム地層PBR＆微細凹凸法線）<br/>
               ・4階層高密度森林（32種・4〜15枝の自然樹木を区画3ドローコールへ静的GPU統合＋距離影制御）<br/>
               ・完全手作業 民家全${builtHouseCount}軒＋商業${builtShopCount}軒＋秘境旧港＋1890年炭鉱地下坑道(135m)＋駐在所＋村営公園＋秘密基地（全${totalBuiltCount}/32拠点完遂）<br/>
-              ・1890年炭鉱入坑時は自動で坑夫カンテラ点灯＆地下暗黒霧へシームレス移行。
+              ・11本の全縦走獣道・村道（北カルデラ外輪山・東観音断崖・西屏風大展望台・黒磯岳865m主峰へすべて徒歩到達可）。
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Interactive 2km x 5km Topographic Map Modal -->
+      <!-- Interactive 3km x 6km Topographic Map Modal -->
       <div class="modal-backdrop" id="map-modal">
         <div class="modal-panel map-panel">
           <div class="modal-header">
-            <h2 class="modal-title">黒磯島 2km × 5km 地形図・全${totalBuiltCount}拠点（クリックで現地移動）</h2>
+            <h2 class="modal-title">黒磯島 3km × 6km 精密等高線地形図・全${totalBuiltCount}拠点（クリックで現地移動）</h2>
             <button class="modal-close" id="btn-close-map">閉じる (M)</button>
           </div>
           <div class="map-layout">
@@ -683,19 +716,19 @@ export class GameHUD {
         const e = elevGrid[idx];
         const eR = px + 1 < w ? elevGrid[idx + 1] : e;
         const eD = py + 1 < h ? elevGrid[idx + w] : e;
-        const shade = Math.max(0.72, Math.min(1.24, 1.0 + (e - eR) * 0.045 + (e - eD) * 0.035));
+        const shade = Math.max(0.66, Math.min(1.28, 1.0 + (e - eR) * 0.056 + (e - eD) * 0.044));
 
         let r = 12;
         let g = 42;
         let b = 68;
 
         if (e <= 0) {
-          const shallow = Math.max(0, 1 + e / 24);
-          r = 10 + shallow * 22;
-          g = 36 + shallow * 58;
-          b = 60 + shallow * 52;
+          const shallow = Math.max(0, 1 + e / 26);
+          r = 10 + shallow * 24;
+          g = 36 + shallow * 62;
+          b = 60 + shallow * 54;
         } else if (e < 6) {
-          r = 176; g = 162; b = 128;
+          r = 178; g = 164; b = 130;
         } else if (e < 190) {
           const t = (e - 6) / 184;
           r = (50 + t * 24) * shade;
@@ -713,22 +746,26 @@ export class GameHUD {
           b = (68 + t * 14) * shade;
         } else {
           const t = Math.min(1, (e - 620) / 245);
-          r = (132 + t * 62) * shade;
-          g = (126 + t * 66) * shade;
-          b = (104 + t * 76) * shade;
+          r = (132 + t * 64) * shade;
+          g = (126 + t * 68) * shade;
+          b = (104 + t * 78) * shade;
         }
 
-        // Crisp 50m elevation contour lines
-        if (e > 5 && px + 1 < w && py + 1 < h) {
-          const b0 = Math.floor(e / 50);
-          const b1 = Math.floor(eR / 50);
-          const b2 = Math.floor(eD / 50);
-          if (b0 !== b1 || b0 !== b2) {
-            const major = b0 % 2 === 0;
-            const mix = major ? 0.42 : 0.22;
-            r *= 1 - mix;
-            g *= 1 - mix;
-            b *= 1 - mix;
+        // Crisp GSI-style 25m minor / 100m major elevation contour lines + coastline outline!
+        if (px + 1 < w && py + 1 < h) {
+          if ((e > 0) !== (eR > 0) || (e > 0) !== (eD > 0)) {
+            r = 215; g = 232; b = 238;
+          } else if (e > 4) {
+            const b0 = Math.floor(e / 25);
+            const b1 = Math.floor(eR / 25);
+            const b2 = Math.floor(eD / 25);
+            if (b0 !== b1 || b0 !== b2) {
+              const major = b0 % 4 === 0; // 100m index contour!
+              const mix = major ? 0.44 : 0.16;
+              r *= 1 - mix;
+              g *= 1 - mix;
+              b *= 1 - mix;
+            }
           }
         }
 
@@ -742,7 +779,7 @@ export class GameHUD {
 
     ctx.putImageData(img, 0, 0);
 
-    // Overlay all 8 graded roads & animal trails
+    // Overlay all 11 graded roads & alpine animal trails
     for (const path of GRADED_PATHS) {
       ctx.beginPath();
       for (let i = 0; i < path.points.length; i++) {
@@ -752,22 +789,22 @@ export class GameHUD {
       }
       if (path.kind === 'road') {
         ctx.strokeStyle = 'rgba(246, 236, 206, 0.92)';
-        ctx.lineWidth = 2.0;
+        ctx.lineWidth = 1.9;
         ctx.setLineDash([]);
       } else if (path.kind === 'forestry') {
         ctx.strokeStyle = 'rgba(224, 198, 136, 0.85)';
-        ctx.lineWidth = 1.6;
+        ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
       } else {
         ctx.strokeStyle = 'rgba(246, 170, 74, 0.95)';
-        ctx.lineWidth = 1.45;
-        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 1.35;
+        ctx.setLineDash([3.5, 2.5]);
       }
       ctx.stroke();
     }
     ctx.setLineDash([]);
 
-    // Overlay all 32 planned sites (highlight the 10 completed 2F-4F kawara houses in gold)
+    // Overlay all 32 completed sites
     const catColors: Record<string, string> = {
       house: '#a87b58',
       shop: '#f06449',
@@ -780,45 +817,63 @@ export class GameHUD {
     for (const s of PLANNED_SITES) {
       const [mx, my] = this.worldToMap(s.x, s.z);
       if (s.category === 'house' && BUILT_HOUSE_IDS.has(s.id)) {
-        const sz = 4.8;
+        const sz = 4.2;
         ctx.fillStyle = '#ffd36e';
         ctx.fillRect(mx - sz * 0.5, my - sz * 0.5, sz, sz);
         ctx.strokeStyle = '#2e1f12';
-        ctx.lineWidth = 1.0;
+        ctx.lineWidth = 0.9;
         ctx.strokeRect(mx - sz * 0.5, my - sz * 0.5, sz, sz);
       } else {
         ctx.fillStyle = catColors[s.category] ?? '#ffffff';
-        const sz = s.category === 'house' ? 3.0 : 5.2;
+        const sz = s.category === 'house' ? 3.0 : 4.8;
         ctx.fillRect(mx - sz * 0.5, my - sz * 0.5, sz, sz);
       }
     }
 
-    // 865m Summit star
+    // 865m Summit star + 3 new 3km x 6km overlook markers
     const [sx, sy] = this.worldToMap(SUMMIT_POINT.x, SUMMIT_POINT.z);
     ctx.fillStyle = '#ffe675';
     ctx.beginPath();
-    ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 4.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#1b1d20';
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    // Key labels directly on map
-    ctx.font = 'bold 9.5px sans-serif';
+    for (const pt of [EAST_CLIFF_POINT, WEST_BLUFF_POINT, NORTH_CALDERA_POINT]) {
+      const [vx, vy] = this.worldToMap(pt.x, pt.z);
+      ctx.fillStyle = '#8ef5c8';
+      ctx.beginPath();
+      ctx.arc(vx, vy, 3.0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#15251e';
+      ctx.lineWidth = 1.0;
+      ctx.stroke();
+    }
+
+    // Key 3km x 6km geographic & landmark labels directly on map
+    ctx.font = 'bold 9px sans-serif';
     ctx.fillStyle = '#fff5d0';
-    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.80)';
     ctx.lineWidth = 2.4;
-    const label = (txt: string, wx: number, wz: number, ox = 6, oy = 3) => {
+    const label = (txt: string, wx: number, wz: number, ox = 5, oy = 3) => {
       const [mx, my] = this.worldToMap(wx, wz);
       ctx.strokeText(txt, mx + ox, my + oy);
       ctx.fillText(txt, mx + ox, my + oy);
     };
-    label('▲黒磯岳 865m', SUMMIT_POINT.x, SUMMIT_POINT.z, -42, -10);
-    label('秘境旧港', HIDDEN_PORT_POINT.x, HIDDEN_PORT_POINT.z, 6, 4);
-    label('1890炭鉱', MINE_PORTAL_POINT.x, MINE_PORTAL_POINT.z, 7, 3);
-    label('秘密基地', SECRET_BASE_POINT.x, SECRET_BASE_POINT.z, -48, 4);
+    label('鬼ヶ崎', 180, -2640, -14, -4);
+    label('北カルデラ', NORTH_CALDERA_POINT.x, NORTH_CALDERA_POINT.z, -24, -7);
+    label('▲黒磯岳 865m', SUMMIT_POINT.x, SUMMIT_POINT.z, -36, -8);
+    label('秘境旧港', HIDDEN_PORT_POINT.x, HIDDEN_PORT_POINT.z, -24, -8);
+    label('1890炭鉱', MINE_PORTAL_POINT.x, MINE_PORTAL_POINT.z, 6, 3);
+    label('秘密基地', SECRET_BASE_POINT.x, SECRET_BASE_POINT.z, 5, 3);
+    label('東観音岳', 890, -190, -22, 4);
+    label('東断崖', EAST_CLIFF_POINT.x, EAST_CLIFF_POINT.z, -28, 12);
+    label('西屏風岳', WEST_BLUFF_POINT.x, WEST_BLUFF_POINT.z, -26, -8);
     label('廃村(254m)', 120, 120, 6, 4);
-    label('漂着浜', SPAWN_POINT.x, SPAWN_POINT.z, -20, 16);
+    label('漂着浜', SPAWN_POINT.x, SPAWN_POINT.z, -16, 13);
+    label('西黒崎', -910, 2440, -16, 12);
+    label('東白浜岬', 950, 2480, -24, 12);
 
     this.mapBaseImage = ctx.getImageData(0, 0, w, h);
   }

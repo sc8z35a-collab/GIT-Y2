@@ -5,6 +5,9 @@ import {
   TERRAIN_EXTENT_Z,
   SUMMIT_POINT,
   LOOKOUT_POINT,
+  EAST_CLIFF_POINT,
+  WEST_BLUFF_POINT,
+  NORTH_CALDERA_POINT,
   sampleTerrain,
   getTerrainNormal,
   isInsideBuiltHouseFootprint,
@@ -19,7 +22,7 @@ import {
 
 const NEAR_CELL = 64;   // High-density 32-species branching forest + boulders (64m x 64m -> 3 draw calls/cell!)
 const MID_CELL = 128;   // Mid-distance 32-species LOD1 forest (128m x 128m -> 3 draw calls/cell!)
-const FAR_CELL = 256;   // Macro mountain canopy across full 2km x 5km island (256m x 256m -> 2 draw calls/cell!)
+const FAR_CELL = 256;   // Macro mountain canopy across full 3km x 6km island (256m x 256m -> 2 draw calls/cell!)
 const GRASS_CELL = 64;  // Ultra-dense swaying wild grass, weeds, ferns, pampas (64m x 64m)
 
 function cellHash(cx: number, cz: number, salt: number): () => number {
@@ -472,9 +475,12 @@ export class FoliageStreamer {
     // Keep roads, animal trails, graded terraces & built house roofs strictly clear of trunks/branches!
     if (s.roadWeight > 0.05 || s.trailWeight > 0.06 || s.terraceWeight > 0.05) return false;
     if (isInsideBuiltHouseFootprint(x, z, 2.8)) return false;
-    // Keep Summit crown & Lookout Bend foreground sightline open
+    // Keep Summit crown, Lookout Bend, and the 3 new 3km x 6km scenic overlook foregrounds unobstructed
     if (Math.hypot(x - SUMMIT_POINT.x, z - SUMMIT_POINT.z) < 95) return false;
     if (Math.hypot(x - LOOKOUT_POINT.x, z - LOOKOUT_POINT.z) < 32) return false;
+    if (Math.hypot(x - EAST_CLIFF_POINT.x, z - EAST_CLIFF_POINT.z) < 26) return false;
+    if (Math.hypot(x - WEST_BLUFF_POINT.x, z - WEST_BLUFF_POINT.z) < 28) return false;
+    if (Math.hypot(x - NORTH_CALDERA_POINT.x, z - NORTH_CALDERA_POINT.z) < 32) return false;
     return true;
   }
 
@@ -888,7 +894,7 @@ export class FoliageStreamer {
     this.streamGrid(camX, camZ, GRASS_CELL, 128, 152, this.grassCells, (cx, cz) => this.buildGrassCell(cx, cz), 18);
     this.streamGrid(camX, camZ, NEAR_CELL, 155, 188, this.nearCells, (cx, cz) => this.buildNearForestCell(cx, cz), 22);
     this.streamGrid(camX, camZ, MID_CELL, 465, 525, this.midCells, (cx, cz) => this.buildMidForestCell(cx, cz), 28, 136);
-    this.streamGrid(camX, camZ, FAR_CELL, 2500, 3000, this.farCells, (cx, cz) => this.buildFarForestCell(cx, cz), 68, 425);
+    this.streamGrid(camX, camZ, FAR_CELL, 3200, 3700, this.farCells, (cx, cz) => this.buildFarForestCell(cx, cz), 92, 425);
     this.updateNearShadows(camX, camZ);
   }
 
@@ -950,7 +956,7 @@ export class FoliageStreamer {
     this.streamGrid(camX, camZ, GRASS_CELL, 132, 162, this.grassCells, (cx, cz) => this.buildGrassCell(cx, cz), 2);
     this.streamGrid(camX, camZ, NEAR_CELL, 160, 192, this.nearCells, (cx, cz) => this.buildNearForestCell(cx, cz), 2);
     this.streamGrid(camX, camZ, MID_CELL, 470, 530, this.midCells, (cx, cz) => this.buildMidForestCell(cx, cz), 1, 136);
-    this.streamGrid(camX, camZ, FAR_CELL, 2550, 3050, this.farCells, (cx, cz) => this.buildFarForestCell(cx, cz), 2, 425);
+    this.streamGrid(camX, camZ, FAR_CELL, 3250, 3750, this.farCells, (cx, cz) => this.buildFarForestCell(cx, cz), 2, 425);
     this.updateNearShadows(camX, camZ);
   }
 
