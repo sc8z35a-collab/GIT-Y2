@@ -26,10 +26,15 @@
   - **`K01` 黒磯駐在所（交番・1896年築）**: 村入口三叉路の白壁＆いぶし銀本瓦二階建、赤色丸型常夜灯・青ホーロー看板・屋外掲示板・巡回黒自転車置場・1F事務室＆鉄格子保護室・2F官舎＆バルコニー。
   - **`P01` 見晴らし村営公園（1964年整備）**: 苔石垣＆西石門・登って滑れる昭和レトロすべり台・二連ブランコ・3×3×3ジャングルジム・砂場＆シーソー・宝形本瓦東屋・白青タイル水飲み場・入室可能な公園管理小屋兼公衆便所。
   - **`B01` 子供たちの山奥の秘密基地（1980〜1985年）**: 苔巨岩の焚き火広場＆流木門・廃材トタン1F隠れ家（赤ラグ・漫画本棚・宝の地図黒板）・直径1.3mの古杉を抱く登れる2F樹上見張りやぐら！
-- **KHDR（独自強化 16bit 線形 HDR）＆ Shadow Flame 1.0 Flash / Pro 独自シャドウエンジン (`src/core/khdrPipeline.ts`, `src/core/shadowFlame.ts`)**:
-  - **KHDR (ON / OFF 切替)**: RGBA16F 線形HDR・Karis加重 Dual-Kawase 光学ブルーム・K-LHE 局所明暗平衡・K-Clarity 局所マイクロコントラスト・AgX着想色相保持 K-Filmic v1 カーブ＋抗バンディングディザ。
-  - **Shadow Flame 1.0 Flash**: 1536² テンポラルキャッシュ＋6タップ IGN 回転 Vogel ディスク（標準 PCFSoft 比 -44%画素 / -33%フェッチ）＋大気青空散乱影。
-  - **Shadow Flame 1.0 Pro**: 近景±50m（`4.8cm/texel`）＋遠景±245m デュアルカスケード・8探索＋16可変半径 SF-PCSS 物理接触硬化・画面空間 SF-MicroContact 微細接地影・山岳遠景セルフシャドウ・2色間接反射影。
+- **KHDR 1.2 hyper（POCO F7 を前提にした物理 HDR パイプライン・既定）＆ Shadow Flame 1.1 Flash / Pro (`src/core/khdr/`, `src/core/shadowFlame.ts`)**:
+  - **K-Atmos / K-Radiance**: Hillaire 2020 の物理大気 LUT（起動時 1 回）から、太陽・空・霧・海の光を実輝度（lux / cd/m²）で算出し、毎フレーム事前露出を掛けます。坑内灯は cd、灯具ガラスは cd/m² で指定します。
+  - **K-Adapt v2**: GPU ヒストグラム（gather）を非同期に読み戻し、CPU で GT7 型の二段順応（短期の瞳孔 ±2 EV ＋ 長期の視細胞 0.03〜900 cd/m²、明順応の上限 約 3,600 cd/m²）を計算します。
+  - **K-LHE v3**: gather 型バイラテラルグリッドによる局所露出（窓の外と室内が同時に見える）。
+  - **K-Glare**: 表示できない余剰光だけを、CIE 2002 眼球散乱関数の形で拡散します。
+  - **K-Filmic v3**: GT 曲線 × Oklab 定色相 × 色域境界 LUT、Display-P3 出力。
+  - **その他**: K-SplitLight（AO は環境光だけ、接地影は直射光だけ）、暗所視（プルキンエ v2）、時間方向のディザ、シェーダー失敗時の 1.1 への自動退避。
+  - 設定画面で **KHDR 1.2 hyper / 1.1 / OFF** を切り替えられます（URL: `?khdr=hyper|1.1|0`）。
+  - **Shadow Flame 1.1**: Flash は ZeroSwim、6km 全山の山影、雲影。Pro は 3 段カスケード、PCSS v2、SSCS、GTAO。
 - **スマホ横画面全画面 UI・解像度（HD / FHD / 1.5K）・120/無制限FPS・3km×6km 精密25m/100m等高線地形図 (`src/ui/hud.ts`, `src/main.ts`)**
 
 ## 設計図ドキュメント
@@ -43,6 +48,7 @@
 - [`docs/08_khdr_and_shadow_flame_architecture.md`](docs/08_khdr_and_shadow_flame_architecture.md) — KHDR（独自強化HDR）＆ Shadow Flame 1.0 Flash / Pro 独自シャドウ技術設計書
 - [`docs/09_khdr_1_1_and_shadow_flame_1_1_research.md`](docs/09_khdr_1_1_and_shadow_flame_1_1_research.md) — KHDR 1.1 ＆ Shadow Flame 1.1 研究レポート
 - [`docs/10_khdr_1_2_hyper_research_plan.md`](docs/10_khdr_1_2_hyper_research_plan.md) — KHDR 1.2 hyper 研究・設計計画書（POCO F7 向け、KHDR 1.3 展望つき。実験コードは [`docs/research/khdr_1_2/`](docs/research/khdr_1_2/)）
+- [`docs/11_khdr_1_2_hyper_implementation.md`](docs/11_khdr_1_2_hyper_implementation.md) — KHDR 1.2 hyper 実装レポート（v1.0：実装内容・最適化・検証結果・次の段階）
 
 ## 開発・ビルド方法
 ```bash

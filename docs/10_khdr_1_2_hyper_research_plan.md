@@ -1,6 +1,6 @@
 # 10. KHDR 1.2 hyper 研究・設計計画書 ― POCO F7 の性能内で到達できる最高の HDR 映像へ（KHDR 1.3 展望つき）
 
-> **ステータス**: 研究と計画のみ。ゲーム本体（`src/`）は一切変更していません。実装はこの計画の承認後に、第 8 章のフェーズ順で行います。
+> **ステータス**: 2026-11-20 に研究・計画として作成。**2026-11-21 に Phase 1〜5 の中核を実装（KHDR 1.2 hyper v1.0）**しました。実装内容・検証・残り（TAAU ほか）は [`docs/11_khdr_1_2_hyper_implementation.md`](11_khdr_1_2_hyper_implementation.md) を参照してください。
 > **対象**: KHDR 1.1（[`src/core/khdrPipeline.ts`](../src/core/khdrPipeline.ts) 987 行／`main` の `55dcbbe`）。実機ターゲットは **POCO F7**（Snapdragon 8s Gen 4／Adreno 825／6.83 型 1.5K AMOLED）と **Chrome for Android**（WebGL2・three.js 0.174）。
 > **再現用コード**: [`docs/research/khdr_1_2/`](research/khdr_1_2/)（Python + numpy。ゲームのコードではありません）。
 > **数値の表記**: 「**実測**」は本研究の計算実験で得た値、「**推定**」は文献やモデルからの見積もり、「**要実機**」は POCO F7 実機で確定させる値です。

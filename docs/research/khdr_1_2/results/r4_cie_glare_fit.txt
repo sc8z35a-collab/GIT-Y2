@@ -1,0 +1,41 @@
+CIE GSF (age 20, p 0.5): integral over 0.001..60 deg = 1.0141 (should be ~1)
+  energy outside  0.05 deg:  48.30%
+  energy outside  0.10 deg:  31.40%
+  energy outside  0.50 deg:  10.06%
+  energy outside  1.00 deg:   6.69%
+  energy outside  2.00 deg:   4.72%
+  energy outside  5.00 deg:   3.14%
+  energy outside 10.00 deg:   2.28%
+  energy outside 30.00 deg:   1.03%
+FHD 887 rows: 0.0699 deg/px; 1 px = 4.19 arcmin
+1.5K 1182 rows: 0.0525 deg/px; 1 px = 3.15 arcmin
+
+level sigma(px) sigma(deg)  weight   share
+  1/2       2.5     0.131  0.27440   71.3%
+  1/4       5.0     0.262  0.00000    0.0%
+  1/8      10.0     0.525  0.07150   18.6%
+  1/16     20.0     1.049  0.00709    1.8%
+  1/32     40.0     2.098  0.01409    3.7%
+  1/64     80.0     4.196  0.01767    4.6%
+veiling fraction k (energy of scattered part, beyond 4.7 arcmin) = 0.3749
+fitted pyramid energy = 0.3847
+  energy beyond  0.2 deg: CIE 0.1922  fit 0.1909
+  energy beyond  0.5 deg: CIE 0.1020  fit 0.0831
+  energy beyond  1.0 deg: CIE 0.0679  fit 0.0458
+  energy beyond  2.0 deg: CIE 0.0479  fit 0.0259
+  energy beyond  5.0 deg: CIE 0.0318  fit 0.0095
+
+NNLS refit (levels 1/2..1/64) + uniform veil for > 5 deg:
+  1/2   sigma    2.5px   0.131deg  weight 0.16180
+  1/4   sigma    5.0px   0.262deg  weight 0.05900
+  1/8   sigma   10.0px   0.525deg  weight 0.03680
+  1/16  sigma   20.0px   1.049deg  weight 0.02059
+  1/32  sigma   40.0px   2.098deg  weight 0.01257
+  1/64  sigma   80.0px   4.196deg  weight 0.01367
+  uniform far veil (energy beyond 5.0 deg) = 0.0318
+  energy in (0.2, 5.0] deg: CIE 0.1604  fit 0.1679
+  energy in (0.5, 5.0] deg: CIE 0.0702  fit 0.0698
+  energy in (1.0, 5.0] deg: CIE 0.0360  fit 0.0361
+  energy in (2.0, 5.0] deg: CIE 0.0161  fit 0.0161
+  energy in (4.0, 5.0] deg: CIE 0.0033  fit 0.0033
+  total added glare energy per unit excess: pyramid 0.3044 + veil 0.0318 = 0.3363

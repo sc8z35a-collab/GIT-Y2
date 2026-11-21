@@ -60,11 +60,13 @@ export interface BuiltStructure {
 export type ResolutionPreset = 'HD' | 'FHD' | '1.5K';
 export type FpsLimitMode = '120' | 'unlimited';
 export type ShadowFlameMode = 'flash' | 'pro';
+/** KHDR mode: OFF (ACES forward), KHDR 1.1 (legacy), KHDR 1.2 hyper (physical HDR pipeline, default). */
+export type KhdrMode = 'off' | '1.1' | 'hyper';
 
 export interface GraphicsSettings {
   resolution: ResolutionPreset;
   fpsLimit: FpsLimitMode;
-  khdr: boolean;
+  khdr: KhdrMode;
   shadowFlame: ShadowFlameMode;
 }
 

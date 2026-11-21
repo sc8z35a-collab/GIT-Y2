@@ -70,6 +70,13 @@ export class KHDRPipeline {
   private height = 720;
   private readonly msaaSamples: number;
   private readonly hdrTexType: THREE.TextureDataType;
+  /**
+   * KHDR 1.2 creates the canvas without MSAA (its own HDR target is multisampled). When KHDR OFF is chosen at
+   * runtime on such a canvas, the scene goes through the MSAA HDR target and a copy pass in which three.js
+   * applies the same ACES tone mapping + sRGB encoding it would apply on the canvas — OFF keeps its edges.
+   */
+  private readonly canvasMsaa: boolean;
+  private offCopyMat: THREE.ShaderMaterial | null = null;
   private readonly sunWorldDir = new THREE.Vector3(0.54, 0.68, 0.49).normalize();
   private readonly tmpSunPoint = new THREE.Vector3();
   private readonly tmpSunView = new THREE.Vector3();
@@ -87,6 +94,7 @@ export class KHDRPipeline {
     this.renderer = renderer;
     this.mobileTier = mobileTier;
     this.enabled = initialEnabled;
+    this.canvasMsaa = renderer.getContextAttributes()?.antialias === true;
     this.width = Math.max(64, width);
     this.height = Math.max(64, height);
     if (sunDirection) {
@@ -746,9 +754,12 @@ export class KHDRPipeline {
   }
 
   public setEnabled(enabled: boolean): void {
-    if (this.enabled === enabled) return;
-    this.enabled = enabled;
-    this.snapAdaptNext = true;
+    if (this.enabled !== enabled) {
+      this.enabled = enabled;
+      this.snapAdaptNext = true;
+    }
+    // Always re-sync: KHDR 1.2 hyper switches the renderer to NoToneMapping while this pipeline stays
+    // disabled, so hyper -> OFF must restore ACES even though `enabled` did not change.
     this.syncRendererToneMapping();
   }
 
@@ -807,8 +818,12 @@ export class KHDRPipeline {
     dtSec = 0.016
   ): void {
     if (!this.enabled) {
-      this.renderer.setRenderTarget(null);
-      this.renderer.render(scene, camera);
+      if (this.canvasMsaa || this.msaaSamples === 0) {
+        this.renderer.setRenderTarget(null);
+        this.renderer.render(scene, camera);
+      } else {
+        this.renderOffThroughMsaaTarget(scene, camera);
+      }
       return;
     }
 
@@ -962,7 +977,46 @@ export class KHDRPipeline {
     this.renderer.autoClear = prevAutoClear;
   }
 
+  /** KHDR OFF on a non-MSAA canvas: scene -> MSAA HDR target (linear), then ACES + sRGB in a copy pass. */
+  private renderOffThroughMsaaTarget(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
+    const r = this.renderer;
+    if (!this.offCopyMat) {
+      this.offCopyMat = new THREE.ShaderMaterial({
+        depthTest: false,
+        depthWrite: false,
+        uniforms: { tScene: { value: null } },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = vec4(position.xy, 0.0, 1.0);
+          }
+        `,
+        // three.js injects toneMapping() / linearToOutputTexel() for the canvas (toneMapped defaults to true)
+        fragmentShader: `
+          uniform sampler2D tScene;
+          varying vec2 vUv;
+          void main() {
+            gl_FragColor = vec4(texture2D(tScene, vUv).rgb, 1.0);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+          }
+        `,
+      });
+    }
+    const prevAutoClear = r.autoClear;
+    r.autoClear = true; // clear both targets first: no tile reloads on TBDR GPUs
+    r.setRenderTarget(this.hdrTarget);
+    r.render(scene, camera);
+    this.offCopyMat.uniforms.tScene.value = this.hdrTarget.texture;
+    this.quadMesh.material = this.offCopyMat;
+    r.setRenderTarget(null);
+    r.render(this.quadScene, this.quadCam);
+    r.autoClear = prevAutoClear;
+  }
+
   public dispose(): void {
+    this.offCopyMat?.dispose();
     this.hdrTarget.depthTexture?.dispose();
     this.hdrTarget.dispose();
     this.depthFxHalf.dispose();

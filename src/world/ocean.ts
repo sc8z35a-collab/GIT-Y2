@@ -1,9 +1,22 @@
 import * as THREE from 'three';
 import { TextureCatalog } from '../core/textureCatalog';
 
+export interface OceanPhysicalParams {
+  /** multiplies the legacy water-body colours (scene illumination x pre-exposure / legacy illumination) */
+  illumScale: number;
+  /** sky radiance reflected by the water (cd/m^2 x pre-exposure) */
+  skyRadiance: THREE.Vector3;
+  /** sun illuminance at the surface (lux x pre-exposure) for the physically bright specular glint */
+  sunIlluminance: THREE.Vector3;
+  fogColor: THREE.Color;
+  fogDensity: number;
+}
+
 export interface OceanSystem {
   group: THREE.Group;
   update: (elapsedSec: number) => void;
+  /** KHDR 1.2 hyper: switch between the legacy look and physically scaled radiance (null = legacy). */
+  setPhysical: (params: OceanPhysicalParams | null) => void;
 }
 
 /**
@@ -27,7 +40,13 @@ export function buildOceanSystem(
     uSkyColor: { value: new THREE.Color(0xa0c6e6) },
     uFogColor: { value: new THREE.Color(0xb8d0e4) },
     uFogDensity: { value: 0.000145 },
+    uPhysical: { value: 0.0 },
+    uIllumScale: { value: 1.0 },
+    uSkyRadiance: { value: new THREE.Vector3(0.35, 0.56, 0.79) },
+    uSunIrr: { value: new THREE.Vector3() },
   };
+  const legacySky = uniforms.uSkyColor.value.clone();
+  const legacyFog = uniforms.uFogColor.value.clone();
 
   const oceanMat = new THREE.ShaderMaterial({
     uniforms,
@@ -56,6 +75,10 @@ export function buildOceanSystem(
       uniform vec3 uSkyColor;
       uniform vec3 uFogColor;
       uniform float uFogDensity;
+      uniform float uPhysical;
+      uniform float uIllumScale;
+      uniform vec3 uSkyRadiance;
+      uniform vec3 uSunIrr;
 
       varying vec3 vWorldPos;
       varying float vWaveH;
@@ -82,21 +105,31 @@ export function buildOceanSystem(
         // Coastal shallow turquoise belt hugging the 3km x 6km Rias island perimeter
         vec2 islandUV = vec2(vWorldPos.x / 1540.0, vWorldPos.z / 3040.0);
         float coastalMask = 1.0 - smoothstep(0.88, 1.42, length(islandUV));
-        vec3 waterBase = mix(uDeepColor, uShallowColor, coastalMask * 0.74);
+        vec3 waterBase = mix(uDeepColor, uShallowColor, coastalMask * 0.74) * uIllumScale;
 
         float fresnel = pow(1.0 - max(dot(N, V), 0.0), 4.0);
         fresnel = clamp(0.08 + 0.88 * fresnel, 0.0, 1.0);
-        vec3 color = mix(waterBase, uSkyColor, fresnel * 0.82);
+        vec3 skyRefl = uPhysical > 0.5 ? uSkyRadiance : uSkyColor;
+        vec3 color = mix(waterBase, skyRefl, fresnel * 0.82);
 
         vec3 H = normalize(uSunDir + V);
-        float spec = pow(max(dot(N, H), 0.0), 185.0);
-        float broadSpec = pow(max(dot(N, H), 0.0), 22.0) * 0.14;
-        color += vec3(1.0, 0.96, 0.86) * (spec * 1.3 + broadSpec);
+        float NdotH = max(dot(N, H), 0.0);
+        if (uPhysical > 0.5) {
+          // KHDR 1.2 hyper: energy-normalised Blinn-Phong glint lit by the real sun illuminance + Schlick Fresnel
+          float VdotH = max(dot(V, H), 0.0);
+          float F = 0.02 + 0.98 * pow(1.0 - VdotH, 5.0);
+          float D = (193.0 / 25.1327) * pow(NdotH, 185.0) + (30.0 / 25.1327) * pow(NdotH, 22.0) * 0.3;
+          color += min(uSunIrr * (F * D * max(dot(N, uSunDir), 0.0) * 0.25), vec3(20000.0));
+        } else {
+          float spec = pow(NdotH, 185.0);
+          float broadSpec = pow(NdotH, 22.0) * 0.14;
+          color += vec3(1.0, 0.96, 0.86) * (spec * 1.3 + broadSpec);
+        }
 
         float foamNoise = sin(vWorldPos.x * 0.36 + uTime * 2.0) * cos(vWorldPos.z * 0.42 - uTime * 1.6);
         float foamFade = 1.0 - smoothstep(160.0, 820.0, dist);
         float crestFoam = smoothstep(0.18, 0.29, vWaveH + foamNoise * 0.05) * coastalMask * foamFade * 0.36;
-        color = mix(color, vec3(0.92, 0.96, 0.98), crestFoam);
+        color = mix(color, vec3(0.92, 0.96, 0.98) * (uPhysical > 0.5 ? max(uIllumScale * 0.5, 0.0) : 1.0), crestFoam);
 
         float fogFactor = 1.0 - exp(-pow(dist * uFogDensity, 2.0));
         color = mix(color, uFogColor, clamp(fogFactor, 0.0, 1.0));
@@ -162,6 +195,22 @@ export function buildOceanSystem(
     group,
     update(elapsedSec: number) {
       uniforms.uTime.value = elapsedSec;
+    },
+    setPhysical(params: OceanPhysicalParams | null) {
+      if (!params) {
+        uniforms.uPhysical.value = 0.0;
+        uniforms.uIllumScale.value = 1.0;
+        uniforms.uSkyColor.value.copy(legacySky);
+        uniforms.uFogColor.value.copy(legacyFog);
+        uniforms.uFogDensity.value = 0.000145;
+        return;
+      }
+      uniforms.uPhysical.value = 1.0;
+      uniforms.uIllumScale.value = params.illumScale;
+      uniforms.uSkyRadiance.value.copy(params.skyRadiance);
+      uniforms.uSunIrr.value.copy(params.sunIlluminance);
+      uniforms.uFogColor.value.copy(params.fogColor);
+      uniforms.uFogDensity.value = params.fogDensity;
     },
   };
 }

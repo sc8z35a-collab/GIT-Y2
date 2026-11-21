@@ -1,4 +1,4 @@
-import { GraphicsSettings, ResolutionPreset, FpsLimitMode, ShadowFlameMode, BuiltStructure } from '../core/types';
+import { GraphicsSettings, ResolutionPreset, FpsLimitMode, ShadowFlameMode, BuiltStructure, KhdrMode } from '../core/types';
 import {
   TERRAIN_EXTENT_X,
   TERRAIN_EXTENT_Z,
@@ -33,7 +33,9 @@ export interface HudFrameMetrics {
   frameMs: number;
   renderWidth: number;
   renderHeight: number;
-  khdr: boolean;
+  khdr: KhdrMode;
+  /** Optional one-line KHDR telemetry (e.g. adaptation EV) shown in the HUD. */
+  khdrInfo?: string;
   shadowFlame: ShadowFlameMode;
   terrain: TerrainStreamStats;
   foliage: FoliageStreamStats;
@@ -380,14 +382,17 @@ export class GameHUD {
 
             <div>
               <div class="setting-group-label">
-                <span>KHDR 1.1（独自強化 16bit 線形 HDR ＋ 統合深度光学）</span>
-                <span id="settings-khdr-readout">${this.settings.khdr ? 'KHDR 1.1 ON' : 'KHDR OFF'}</span>
+                <span>KHDR（独自強化 HDR エンジン）</span>
+                <span id="settings-khdr-readout">${khdrLabel(this.settings.khdr)}</span>
               </div>
-              <div class="segmented two-col" id="khdr-group">
-                <button class="seg-btn ${this.settings.khdr ? 'selected' : ''}" data-khdr="on">
-                  KHDR 1.1 ON<span>瞳孔順応・無ハローLHE・4階層ハレーション・薄明光線</span>
+              <div class="segmented" id="khdr-group">
+                <button class="seg-btn ${this.settings.khdr === 'hyper' ? 'selected' : ''}" data-khdr="hyper">
+                  KHDR 1.2 hyper<span>物理大気・二段順応・局所露出・眼球散乱グレア・P3</span>
                 </button>
-                <button class="seg-btn ${!this.settings.khdr ? 'selected' : ''}" data-khdr="off">
+                <button class="seg-btn ${this.settings.khdr === '1.1' ? 'selected' : ''}" data-khdr="1.1">
+                  KHDR 1.1<span>従来版（K-Adapt・K-LHE v2・K-Filmic v2）</span>
+                </button>
+                <button class="seg-btn ${this.settings.khdr === 'off' ? 'selected' : ''}" data-khdr="off">
                   KHDR OFF<span>標準 ACES・最軽量フォワード描画</span>
                 </button>
               </div>
@@ -409,10 +414,7 @@ export class GameHUD {
             </div>
 
             <div class="settings-note" id="settings-engine-note">
-              <strong>KHDR 1.1 ${this.settings.khdr ? 'ON' : 'OFF'} × Shadow Flame ${this.settings.shadowFlame === 'pro' ? '1.1 Pro' : '1.1 Flash'} 稼働中</strong><br/>
-              ・<strong>KHDR 1.1</strong>: GPU 1×1非対称瞳孔順応(K-Adapt)＋無ハローBilateral K-LHE v2＋4階層35mmハレーション＋薄明光線ゴッドレイ＋露出後プルキンエ暗所視覚＋葉色ズレ0.00° K-Filmic v2<br/>
-              ・<strong>Shadow Flame 1.1 Flash</strong>: ライト空間完全量子化(SF-ZeroSwim)＋5KB 6km全山ホライゾン影(GPU負荷0)＋移動雲影＆木漏れ日＋逆光透過光(葉色厳守)<br/>
-              ・<strong>Shadow Flame 1.1 Pro</strong>: 3段階対数分散カスケード(1f最大1枚・2.7〜3.1cm精度)＋dZ/dUV勾配＆2段早期離脱PCSS v2＋単一パス統合DepthFx(SF-SSCS接地影＆SF-GTAO-Lite環境遮蔽)
+              ${engineNoteHtml(this.settings)}
             </div>
           </div>
         </div>
@@ -591,8 +593,8 @@ export class GameHUD {
     // KHDR ON/OFF toggle buttons
     this.root.querySelectorAll('#khdr-group .seg-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const on = (btn as HTMLElement).dataset.khdr === 'on';
-        this.settings.khdr = on;
+        const raw = (btn as HTMLElement).dataset.khdr;
+        this.settings.khdr = (raw === 'off' || raw === '1.1' ? raw : 'hyper') as KhdrMode;
         this.syncGraphicsUI(this.settings);
         this.callbacks.onGraphicsChange({ ...this.settings });
       });
@@ -960,7 +962,7 @@ export class GameHUD {
       b.classList.toggle('selected', (b as HTMLElement).dataset.fps === next.fpsLimit);
     });
     this.root.querySelectorAll('#khdr-group .seg-btn').forEach((b) => {
-      b.classList.toggle('selected', ((b as HTMLElement).dataset.khdr === 'on') === next.khdr);
+      b.classList.toggle('selected', (b as HTMLElement).dataset.khdr === next.khdr);
     });
     this.root.querySelectorAll('#sf-group .seg-btn').forEach((b) => {
       b.classList.toggle('selected', (b as HTMLElement).dataset.sf === next.shadowFlame);
@@ -970,16 +972,12 @@ export class GameHUD {
     const fpsRo = this.root.querySelector('#settings-fps-readout');
     if (fpsRo) fpsRo.textContent = next.fpsLimit === '120' ? '120 FPS' : '無制限';
     const khdrRo = this.root.querySelector('#settings-khdr-readout');
-    if (khdrRo) khdrRo.textContent = next.khdr ? 'KHDR 1.1 ON' : 'KHDR OFF';
+    if (khdrRo) khdrRo.textContent = khdrLabel(next.khdr);
     const sfRo = this.root.querySelector('#settings-sf-readout');
     if (sfRo) sfRo.textContent = next.shadowFlame === 'pro' ? '1.1 Pro' : '1.1 Flash';
     const note = this.root.querySelector('#settings-engine-note');
     if (note) {
-      note.innerHTML =
-        `<strong>KHDR 1.1 ${next.khdr ? 'ON' : 'OFF'} × Shadow Flame ${next.shadowFlame === 'pro' ? '1.1 Pro' : '1.1 Flash'} 稼働中</strong><br/>` +
-        `・<strong>KHDR 1.1</strong>: GPU 1×1非対称瞳孔順応(K-Adapt)＋無ハローBilateral K-LHE v2＋4階層35mmハレーション＋薄明光線ゴッドレイ＋露出後プルキンエ暗所視覚＋葉色ズレ0.00° K-Filmic v2<br/>` +
-        `・<strong>Shadow Flame 1.1 Flash</strong>: ライト空間完全量子化(SF-ZeroSwim)＋5KB 6km全山ホライゾン影(GPU負荷0)＋移動雲影＆木漏れ日＋逆光透過光(葉色厳守)<br/>` +
-        `・<strong>Shadow Flame 1.1 Pro</strong>: 3段階対数分散カスケード(1f最大1枚・2.7〜3.1cm精度)＋dZ/dUV勾配＆2段早期離脱PCSS v2＋単一パス統合DepthFx(SF-SSCS接地影＆SF-GTAO-Lite環境遮蔽)`;
+      note.innerHTML = engineNoteHtml(next);
     }
   }
 
@@ -1081,7 +1079,7 @@ export class GameHUD {
     this.compassEl.textContent = getCompassText(this.controller.yaw);
 
     const triK = (metrics.terrain.approxTriangles / 1000).toFixed(0);
-    const khdrTag = metrics.khdr ? 'KHDR 1.1' : 'KHDR OFF';
+    const khdrTag = khdrLabel(metrics.khdr) + (metrics.khdrInfo ? ` ${metrics.khdrInfo}` : '');
     const sfTag = metrics.shadowFlame === 'pro' ? 'SF 1.1 Pro' : 'SF 1.1 Flash';
     this.telemetryEl.innerHTML =
       `<strong>${metrics.fps.toFixed(0)} FPS</strong> · ${metrics.frameMs.toFixed(1)}ms · ${metrics.renderWidth}×${metrics.renderHeight} · <strong>${khdrTag}</strong> · <strong>${sfTag}</strong><br/>` +
@@ -1091,4 +1089,19 @@ export class GameHUD {
       this.drawDynamicMapOverlay();
     }
   }
+}
+
+function khdrLabel(mode: KhdrMode): string {
+  return mode === 'hyper' ? 'KHDR 1.2 hyper' : mode === '1.1' ? 'KHDR 1.1' : 'KHDR OFF';
+}
+
+function engineNoteHtml(settings: GraphicsSettings): string {
+  const sf = settings.shadowFlame === 'pro' ? '1.1 Pro' : '1.1 Flash';
+  return (
+    `<strong>${khdrLabel(settings.khdr)} × Shadow Flame ${sf} 稼働中</strong><br/>` +
+    `・<strong>KHDR 1.2 hyper</strong>: Hillaire 物理大気(空・太陽・空気遠近を同一モデルで算出)＋実輝度(cd/m²)照明×事前露出＋GT7型 二段順応(瞳孔/視細胞)＋GPUヒストグラム測光＋バイラテラルグリッド局所露出＋CIE 2002 眼球散乱グレア(表示できない余剰光のみ)＋K-Filmic v3(Oklab 定色相)＋Display-P3＋暗所視(プルキンエ v2)＋直射/環境光の分離AO<br/>` +
+    `・<strong>KHDR 1.1</strong>: GPU 1×1非対称瞳孔順応(K-Adapt)＋Bilateral K-LHE v2＋4階層ハレーション＋薄明光線＋K-Filmic v2<br/>` +
+    `・<strong>Shadow Flame 1.1 Flash</strong>: ライト空間完全量子化(SF-ZeroSwim)＋5KB 6km全山ホライゾン影＋移動雲影＆木漏れ日＋逆光透過光<br/>` +
+    `・<strong>Shadow Flame 1.1 Pro</strong>: 3段階対数分散カスケード＋dZ/dUV勾配＆2段早期離脱PCSS v2＋単一パス統合DepthFx(SSCS接地影＆GTAO環境遮蔽)`
+  );
 }
