@@ -1,10 +1,14 @@
 import * as THREE from 'three';
 import './styles.css';
-import { GraphicsSettings, ResolutionPreset, ShadowFlameMode } from './core/types';
+import { GraphicsSettings, KhdrMode, ResolutionPreset, ShadowFlameMode } from './core/types';
 import { TextureCatalog } from './core/textureCatalog';
 import { WorldCollision } from './core/collision';
 import { installShadowFlameShaders, ShadowFlameSystem, detectMobileTier } from './core/shadowFlame';
 import { KHDRPipeline } from './core/khdrPipeline';
+import { KHDRHyperPipeline } from './core/khdr/hyperPipeline';
+import { KAtmosphere, SOLAR_ILLUMINANCE_TOA, SUN_SOLID_ANGLE } from './core/khdr/atmosphere';
+import { installKhdrSplitLight } from './core/khdr/splitLight';
+import type { KhdrGamut } from './core/khdr/gamutLut';
 import {
   SPAWN_POINT,
   LOOKOUT_POINT,
@@ -26,8 +30,21 @@ import { buildAllHouses } from './world/houses';
 import { FirstPersonController } from './player/firstPersonController';
 import { GameHUD } from './ui/hud';
 
-// Install proprietary Shadow Flame 1.0 (Flash & Pro) GLSL kernels globally before any materials compile!
+// Install proprietary Shadow Flame (Flash & Pro) GLSL kernels and the KHDR 1.2 K-SplitLight output patch
+// globally before any materials compile!
 installShadowFlameShaders();
+installKhdrSplitLight();
+
+// KHDR 1.2 hyper K-Radiance: physical light levels (lux / candela / cd/m^2), multiplied every frame by the
+// CPU pre-exposure from K-Adapt v2. Legacy (KHDR OFF / 1.1) keeps the original artist values.
+const HYPER_GROUND_ALBEDO = 0.11;
+const HYPER_MINE_AMBIENT_LUX = 0.35; // faint cave fill
+const HYPER_MINE_FOG_NITS = 0.012;
+const HYPER_HEADLAMP_CD = 150; // miner's cap lamp
+const HYPER_LAMP_CD_PER_LEGACY = 15; // legacy bulkhead intensity 4.2 -> ~63 cd (60 W bulb)
+const HYPER_DECAY_COMP = Math.pow(3.0, 1.35 - 2.0); // match physical 1/d^2 irradiance at 3 m for decay 1.35
+const LEGACY_AMBIENT_ILLUM = 2.3; // legacy hemi + 0.6 x horizontal sun, used to scale the ocean colours
+const HYPER_SKY_CHROMA_ADAPT = 0.35;
 
 // Atmospheric sky & aerial-perspective fog calibrated to 3km x 6km Japanese volcanic mountain photography
 const FOG_COLOR = 0xb8d0e4;
@@ -155,7 +172,9 @@ function bootstrap(): void {
   const initialRes = (['HD', 'FHD', '1.5K'].includes(params.get('res') || '')
     ? params.get('res')
     : 'FHD') as ResolutionPreset;
-  const initialKhdr = params.has('khdr') ? params.get('khdr') !== '0' : true;
+  const khdrParam = params.get('khdr');
+  const initialKhdr: KhdrMode =
+    khdrParam === '0' || khdrParam === 'off' ? 'off' : khdrParam === '1.1' || khdrParam === 'legacy' ? '1.1' : 'hyper';
   const initialShadow = (params.get('shadow')?.toLowerCase() === 'pro' ? 'pro' : 'flash') as ShadowFlameMode;
 
   const settings: GraphicsSettings = {
@@ -172,9 +191,11 @@ function bootstrap(): void {
   }
 
   // 1. WebGLRenderer setup
+  // KHDR modes render into their own MSAA HDR target, so the canvas back buffer only receives one
+  // full-screen triangle: skipping canvas MSAA saves a multisampled back buffer + resolve on POCO F7.
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: initialKhdr === 'off',
     powerPreference: 'high-performance',
     stencil: false,
   });
@@ -194,6 +215,7 @@ function bootstrap(): void {
   // 3. Sky Dome, Hemisphere Fill, Shadow Flame 1.1 Engine (Flash / Pro) & KHDR 1.1 Linear HDR Pipeline
   const mobileTier = detectMobileTier();
   const skyDome = createSkyDome(SUN_DIRECTION);
+  const legacySkyMaterial = skyDome.material as THREE.ShaderMaterial;
   scene.add(skyDome);
 
   const hemiLight = new THREE.HemisphereLight(0xbce0ff, 0x566b46, 1.08);
@@ -201,7 +223,38 @@ function bootstrap(): void {
 
   const shadowFlame = new ShadowFlameSystem(scene, SUN_DIRECTION, settings.shadowFlame, mobileTier);
   const sunLight = shadowFlame.sunLight;
-  const khdrPipeline = new KHDRPipeline(renderer, 1280, 720, settings.khdr, SUN_DIRECTION, mobileTier);
+  const khdrPipeline = new KHDRPipeline(renderer, 1280, 720, settings.khdr === '1.1', SUN_DIRECTION, mobileTier);
+
+  // KHDR 1.2 hyper (created lazily the first time the mode is selected)
+  let atmosphere: KAtmosphere | null = null;
+  let hyper: KHDRHyperPipeline | null = null;
+  let shaderErrorCount = 0;
+  let hyperErrorBaseline = 0;
+  renderer.debug.onShaderError = (gl, program, glVertexShader, glFragmentShader) => {
+    shaderErrorCount++;
+    console.error(
+      '[KHDR] shader program failed to compile/link',
+      gl.getProgramInfoLog(program),
+      gl.getShaderInfoLog(glVertexShader),
+      gl.getShaderInfoLog(glFragmentShader)
+    );
+  };
+  const glCtx = renderer.getContext() as WebGL2RenderingContext & { drawingBufferColorSpace?: string };
+  const canP3 = 'drawingBufferColorSpace' in glCtx;
+  const gamutParam = params.get('gamut');
+  const displayIsP3 = typeof window.matchMedia === 'function' && window.matchMedia('(color-gamut: p3)').matches;
+  const preferredGamut: KhdrGamut =
+    canP3 && (gamutParam === 'p3' || (gamutParam !== 'srgb' && displayIsP3)) ? 'p3' : 'srgb';
+  const applyDrawingBufferGamut = (g: KhdrGamut): KhdrGamut => {
+    if (!canP3) return 'srgb';
+    const want = g === 'p3' ? 'display-p3' : 'srgb';
+    try {
+      if (glCtx.drawingBufferColorSpace !== want) glCtx.drawingBufferColorSpace = want;
+    } catch {
+      /* unsupported colour space: keep sRGB */
+    }
+    return glCtx.drawingBufferColorSpace === 'display-p3' ? 'p3' : 'srgb';
+  };
 
   // 4. Shared Texture Catalog (212 WebP tiles strictly from user-provided assets/textures/)
   const catalog = new TextureCatalog(renderer);
@@ -217,6 +270,29 @@ function bootstrap(): void {
 
   collision.registerStructures(houseSystem.structures);
 
+  // K-Radiance emissive registry: lamp glass etc. get physical luminance (cd/m^2) in KHDR 1.2 hyper
+  const emissiveMats: Array<{ mat: THREE.MeshStandardMaterial; base: number; nits: number; lum: number }> = [];
+  {
+    const seen = new Set<THREE.Material>();
+    houseSystem.group.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const m of mats) {
+        if (!m || seen.has(m) || !(m as THREE.MeshStandardMaterial).isMeshStandardMaterial) continue;
+        seen.add(m);
+        const sm = m as THREE.MeshStandardMaterial;
+        const e = sm.emissive;
+        const lum = 0.2126 * e.r + 0.7152 * e.g + 0.0722 * e.b;
+        if (lum <= 1e-4 || sm.emissiveIntensity <= 0) continue;
+        const hex = e.getHex();
+        // koban red globe ~1800 cd/m^2, dusty caged mine-lamp glass ~6000 cd/m^2
+        const nits = hex === 0xe6261a ? 1800 : hex === 0xffb454 ? 6000 : 3000 * sm.emissiveIntensity;
+        emissiveMats.push({ mat: sm, base: sm.emissiveIntensity, nits, lum });
+      }
+    });
+  }
+
   scene.add(terrainStreamer.group);
   scene.add(foliageStreamer.group);
   scene.add(oceanSystem.group);
@@ -230,6 +306,7 @@ function bootstrap(): void {
 
   const mineStructure = houseSystem.getById('M01');
   const mineBulkheadLights: THREE.PointLight[] = [];
+  const mineLampLegacy: number[] = [];
   if (mineStructure) {
     const mc = Math.cos(mineStructure.yaw);
     const ms = Math.sin(mineStructure.yaw);
@@ -252,6 +329,7 @@ function bootstrap(): void {
       pl.visible = false;
       scene.add(pl);
       mineBulkheadLights.push(pl);
+      mineLampLegacy.push(inten);
     }
   }
 
@@ -279,25 +357,150 @@ function bootstrap(): void {
     caveLightFactor = instant ? targetFactor : caveLightFactor + (targetFactor - caveLightFactor) * 0.16;
     if (caveLightFactor < 0.004 && targetFactor === 0) caveLightFactor = 0;
 
-    // Dim outdoor sun & sky fill smoothly as player enters deep beneath Mt. Kuroiso
-    sunLight.intensity = 2.32 * (1 - caveLightFactor);
-    hemiLight.intensity = 1.08 * (1 - caveLightFactor) + 0.24 * caveLightFactor;
     if (scene.fog instanceof THREE.FogExp2) {
-      currentFogColor.copy(skyFogColor).lerp(mineFogColor, caveLightFactor);
-      scene.fog.color.copy(currentFogColor);
       scene.fog.density = FOG_DENSITY * (1 - caveLightFactor) + 0.0115 * caveLightFactor;
-      scene.background = currentFogColor;
     }
-
     const caveActive = caveLightFactor > 0.02;
     caveHeadlamp.visible = caveActive;
     if (caveActive) {
       caveHeadlamp.position.copy(camera.position);
-      caveHeadlamp.intensity = 5.4 * caveLightFactor;
     }
     for (let i = 0; i < mineBulkheadLights.length; i++) {
       mineBulkheadLights[i].visible = caveActive;
     }
+    applyLightingRegime();
+  };
+
+  const tmpFog = new THREE.Color();
+  const tmpVecA = new THREE.Vector3();
+  const tmpVecB = new THREE.Vector3();
+  const groundTint = new THREE.Color(0x566b46);
+  const groundTintLum = 0.2126 * groundTint.r + 0.7152 * groundTint.g + 0.0722 * groundTint.b;
+  const lum3 = (v: THREE.Vector3) => 0.2126 * v.x + 0.7152 * v.y + 0.0722 * v.z;
+
+  /**
+   * Lighting regimes:
+   *  - legacy (KHDR OFF / 1.1): the original artist-tuned light values
+   *  - physical (KHDR 1.2 hyper, K-Radiance): sun, sky, fog colour, ocean and the sky dome all come from the
+   *    same Hillaire atmosphere model (lux, cd/m^2); mine lamps / emissives in candela / cd/m^2. Everything is
+   *    multiplied by the CPU pre-exposure so the RGBA16F buffer stays centred on middle grey everywhere.
+   */
+  function applyLightingRegime(): void {
+    const cave = caveLightFactor;
+    const fog = scene.fog instanceof THREE.FogExp2 ? scene.fog : null;
+    if (settings.khdr !== 'hyper' || !hyper || !atmosphere) {
+      if (skyDome.material !== legacySkyMaterial) skyDome.material = legacySkyMaterial;
+      sunLight.color.set(0xfff5e2);
+      sunLight.intensity = 2.32 * (1 - cave);
+      hemiLight.color.set(0xbce0ff);
+      hemiLight.groundColor.set(0x566b46);
+      hemiLight.intensity = 1.08 * (1 - cave) + 0.24 * cave;
+      currentFogColor.copy(skyFogColor).lerp(mineFogColor, cave);
+      if (fog) fog.color.copy(currentFogColor);
+      scene.background = currentFogColor;
+      caveHeadlamp.intensity = 5.4 * cave;
+      for (let i = 0; i < mineBulkheadLights.length; i++) mineBulkheadLights[i].intensity = mineLampLegacy[i];
+      for (const e of emissiveMats) e.mat.emissiveIntensity = e.base;
+      oceanSystem.setPhysical(null);
+      return;
+    }
+
+    const P = hyper.getPreExposure();
+    const atm = atmosphere.getLighting();
+    const outdoor = 1 - cave;
+    // Sun: illuminance & colour after atmospheric transmittance at the camera altitude
+    const sunLum = Math.max(lum3(atm.sunIlluminance), 1e-3);
+    sunLight.color.setRGB(atm.sunIlluminance.x / sunLum, atm.sunIlluminance.y / sunLum, atm.sunIlluminance.z / sunLum);
+    sunLight.intensity = sunLum * P * outdoor;
+    // Sky: hemisphere irradiance from the integrated sky-view LUT; ground bounce from a Lambertian island floor
+    const skyLum = Math.max(lum3(atm.skyIrradiance), 1e-3);
+    // Partial chromatic adaptation of the skylight colour (the eye white-balances open shade; a camera would
+    // render it deep blue). 35% toward neutral, luminance preserved.
+    {
+      const cr = atm.skyIrradiance.x / skyLum + (1 - atm.skyIrradiance.x / skyLum) * HYPER_SKY_CHROMA_ADAPT;
+      const cg = atm.skyIrradiance.y / skyLum + (1 - atm.skyIrradiance.y / skyLum) * HYPER_SKY_CHROMA_ADAPT;
+      const cb = atm.skyIrradiance.z / skyLum + (1 - atm.skyIrradiance.z / skyLum) * HYPER_SKY_CHROMA_ADAPT;
+      const cl = Math.max(0.2126 * cr + 0.7152 * cg + 0.0722 * cb, 1e-4);
+      hemiLight.color.setRGB(cr / cl, cg / cl, cb / cl);
+    }
+    const groundUp = HYPER_GROUND_ALBEDO * (sunLum * SUN_DIRECTION.y + skyLum);
+    const g = groundUp / skyLum / Math.max(groundTintLum, 1e-3);
+    hemiLight.groundColor.setRGB(groundTint.r * g, groundTint.g * g, groundTint.b * g);
+    hemiLight.intensity = (skyLum * outdoor + HYPER_MINE_AMBIENT_LUX * cave) * P;
+    // Fog / aerial-perspective colour = the actual horizon sky radiance (so far ridges melt into the real sky)
+    tmpFog.setRGB(atm.horizonRadiance.x * P * outdoor, atm.horizonRadiance.y * P * outdoor, atm.horizonRadiance.z * P * outdoor);
+    tmpFog.r += HYPER_MINE_FOG_NITS * 0.8 * P * cave;
+    tmpFog.g += HYPER_MINE_FOG_NITS * 0.9 * P * cave;
+    tmpFog.b += HYPER_MINE_FOG_NITS * 1.1 * P * cave;
+    currentFogColor.copy(tmpFog);
+    if (fog) fog.color.copy(currentFogColor);
+    scene.background = currentFogColor;
+    // Physical sky dome
+    if (skyDome.material !== atmosphere.skyMaterial) skyDome.material = atmosphere.skyMaterial;
+    const su = atmosphere.skyMaterial.uniforms;
+    su.uSkyScale.value = SOLAR_ILLUMINANCE_TOA * P;
+    su.uSunDiscScale.value = (SOLAR_ILLUMINANCE_TOA / SUN_SOLID_ANGLE) * P;
+    (su.uSunIrr.value as THREE.Vector3).copy(atm.sunIlluminance).multiplyScalar(P);
+    (su.uSkyIrr.value as THREE.Vector3).copy(atm.skyIrradiance).multiplyScalar(P);
+    su.uCaveDim.value = outdoor;
+    // Coal-mine lamps (candela) and lamp glass / koban globe (cd/m^2)
+    caveHeadlamp.intensity = HYPER_HEADLAMP_CD * HYPER_DECAY_COMP * P * cave;
+    for (let i = 0; i < mineBulkheadLights.length; i++) {
+      mineBulkheadLights[i].intensity = mineLampLegacy[i] * HYPER_LAMP_CD_PER_LEGACY * HYPER_DECAY_COMP * P;
+    }
+    for (const e of emissiveMats) e.mat.emissiveIntensity = (e.nits * P) / Math.max(e.lum, 1e-3);
+    // Ocean: water body scaled by the physical illumination, glint lit by the real sun
+    const illum = (skyLum + 0.6 * sunLum * SUN_DIRECTION.y) * P * outdoor;
+    oceanSystem.setPhysical({
+      illumScale: illum / LEGACY_AMBIENT_ILLUM,
+      skyRadiance: tmpVecA.copy(atm.horizonRadiance).multiplyScalar(0.75 * P * outdoor),
+      sunIlluminance: tmpVecB.copy(atm.sunIlluminance).multiplyScalar(P * outdoor),
+      fogColor: currentFogColor,
+      fogDensity: fog ? fog.density : FOG_DENSITY,
+    });
+    hyper.setSunColor(atm.sunIlluminance);
+  }
+
+  /** Context estimate (log2 cd/m^2) used to snap K-Adapt v2 on teleports / mode switches. */
+  const adaptationContextLog = (): number => {
+    if (caveLightFactor > 0.5) return Math.log2(0.6);
+    return Math.log2(2600);
+  };
+
+  const ensureHyper = (): boolean => {
+    if (hyper && atmosphere) return true;
+    if (!KHDRHyperPipeline.isSupported(renderer)) return false;
+    try {
+      atmosphere = new KAtmosphere(renderer, SUN_DIRECTION, Math.max(0, camera.position.y));
+      hyper = new KHDRHyperPipeline(renderer, renderWidth, renderHeight, SUN_DIRECTION, mobileTier);
+      return true;
+    } catch (e) {
+      console.error('[KHDR] 1.2 hyper initialisation failed', e);
+      atmosphere?.dispose();
+      hyper?.dispose();
+      atmosphere = null;
+      hyper = null;
+      return false;
+    }
+  };
+
+  const setKhdrMode = (mode: KhdrMode): void => {
+    let m = mode;
+    if (m === 'hyper' && !ensureHyper()) {
+      console.warn('[KHDR] 1.2 hyper is not supported on this device, falling back to KHDR 1.1');
+      m = '1.1';
+    }
+    settings.khdr = m;
+    khdrPipeline.setEnabled(m === '1.1');
+    if (m === 'hyper' && hyper) {
+      renderer.toneMapping = THREE.NoToneMapping;
+      hyperErrorBaseline = shaderErrorCount;
+      hyper.setOutputGamut(applyDrawingBufferGamut(preferredGamut));
+      hyper.snap(adaptationContextLog());
+    } else {
+      applyDrawingBufferGamut('srgb');
+    }
+    applyLightingRegime();
   };
 
   // Register lowercase structure IDs (h01..h25, s01, s02, port01, k01, p01, b01, m01) as instant teleport presets
@@ -339,6 +542,7 @@ function bootstrap(): void {
     updateSubterraneanAtmosphere(true);
     shadowFlame.invalidate();
     khdrPipeline.resetAdaptation();
+    hyper?.snap(adaptationContextLog());
   };
   warmStreamAroundPlayer();
 
@@ -365,11 +569,13 @@ function bootstrap(): void {
     renderer.setPixelRatio(1);
     renderer.setSize(renderWidth, renderHeight, false);
     khdrPipeline.setSize(renderWidth, renderHeight);
+    hyper?.setSize(renderWidth, renderHeight);
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
   };
 
   applyResolution();
+  setKhdrMode(settings.khdr);
   window.addEventListener('resize', applyResolution);
   window.addEventListener('orientationchange', () => window.setTimeout(applyResolution, 120));
 
@@ -378,10 +584,9 @@ function bootstrap(): void {
     const shadowChanged = settings.shadowFlame !== next.shadowFlame;
     settings.resolution = next.resolution;
     settings.fpsLimit = next.fpsLimit;
-    settings.khdr = next.khdr;
+    const khdrChanged = settings.khdr !== next.khdr;
     settings.shadowFlame = next.shadowFlame;
-
-    khdrPipeline.setEnabled(settings.khdr);
+    if (khdrChanged) setKhdrMode(next.khdr);
     if (shadowChanged) {
       shadowFlame.setMode(settings.shadowFlame);
       foliageStreamer.setProShadows(settings.shadowFlame === 'pro', controller.position.x, controller.position.z);
@@ -445,13 +650,35 @@ function bootstrap(): void {
     foliageStreamer.update(controller.position.x, controller.position.z, elapsedSec);
     houseSystem.update(controller.position);
 
-    // Keep sky dome centered on camera, Shadow Flame 1.1 cascades synced, and subterranean cave lights tuned!
+    // Keep sky dome centered on camera, Shadow Flame cascades synced, and subterranean cave lights tuned!
     skyDome.position.copy(camera.position);
+    const hyperActive = settings.khdr === 'hyper' && hyper !== null && atmosphere !== null;
+    const hyperCtx = {
+      dt: physDt,
+      caveFactor: caveLightFactor,
+      inside: controller.insideStructure !== null,
+      shadowMode: settings.shadowFlame,
+    };
+    if (hyperActive) {
+      // K-Atmos altitude refresh + K-Adapt v2 step => pre-exposure for this frame (before lights are set)
+      atmosphere!.update(Math.max(0, camera.position.y));
+      hyper!.beginFrame(hyperCtx);
+    }
     updateSubterraneanAtmosphere(forceHud);
     updateSunShadowFollow(elapsedSec, forceHud);
 
-    // Render frame through KHDR 1.1 (Single-Pass K-Fused DepthFx + K-Adapt + Bilateral K-LHE v2 + K-Filmic v2)
-    khdrPipeline.render(scene, camera, caveLightFactor, settings.shadowFlame, physDt);
+    if (hyperActive) {
+      // KHDR 1.2 hyper: physical HDR chain (K-Glare, K-Meter, K-LHE v3, K-Filmic v3, P3 ...)
+      hyper!.render(scene, camera, hyperCtx);
+      if (shaderErrorCount > hyperErrorBaseline) {
+        console.warn('[KHDR] 1.2 hyper shader failure detected -> automatic fallback to KHDR 1.1');
+        setKhdrMode('1.1');
+        hud.syncGraphicsUI(settings);
+      }
+    } else {
+      // KHDR 1.1 (or OFF): legacy pipeline
+      khdrPipeline.render(scene, camera, caveLightFactor, settings.shadowFlame, physDt);
+    }
 
     // Consistent FPS / frame-ms telemetry (ignore initial 3 shader-compile warmup frames)
     if (renderedFrames >= 3) {
@@ -467,6 +694,7 @@ function bootstrap(): void {
         renderWidth,
         renderHeight,
         khdr: settings.khdr,
+        khdrInfo: hyperActive && hyper ? `EV${hyper.getTelemetry().ev100.toFixed(1)}` : undefined,
         shadowFlame: settings.shadowFlame,
         terrain: terrainStreamer.getStats(),
         foliage: foliageStreamer.getStats(),
@@ -542,6 +770,20 @@ function bootstrap(): void {
       skyDome.position.copy(camera.position);
       updateSunShadowFollow((performance.now() - startTime) * 0.001, true);
       return true;
+    },
+    getKhdr: () => ({
+      mode: settings.khdr,
+      telemetry: hyper ? hyper.getTelemetry() : null,
+      atmosphere: atmosphere ? atmosphere.getLighting() : null,
+      preExposure: hyper ? hyper.getPreExposure() : 1,
+      shaderErrors: shaderErrorCount,
+      drawingBufferColorSpace: glCtx.drawingBufferColorSpace ?? 'srgb',
+      toneMapping: renderer.toneMapping,
+      toneMappingExposure: renderer.toneMappingExposure,
+      canvasMsaa: renderer.getContextAttributes()?.antialias === true,
+    }),
+    setKhdrDebugView: (on: boolean) => {
+      hyper?.setDebugView(on);
     },
     houses: houseSystem.structures.map((s) => ({
       id: s.id,

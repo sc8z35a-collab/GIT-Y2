@@ -1,0 +1,42 @@
+=== Mid-gray / white mapping (scene-linear exposed input -> display) ===
+KFilmic_v1(1.0)    0.18 -> lin 0.0602 (sRGB   69.4)  midtone log-contrast slope 1.555  white(0.995) reached at 5.20 EV above 0.18
+KFilmic_v2(1.1)    0.18 -> lin 0.0864 (sRGB   83.0)  midtone log-contrast slope 1.411  white(0.995) reached at 5.75 EV above 0.18
+ACES(three)        0.18 -> lin 0.2131 (sRGB  127.2)  midtone log-contrast slope 1.235  white(0.995) reached at 6.05 EV above 0.18
+AgX(three)         0.18 -> lin 0.2145 (sRGB  127.6)  midtone log-contrast slope 0.788  white(0.995) reached at 6.50 EV above 0.18
+PBRNeutral         0.18 -> lin 0.1400 (sRGB  104.6)  midtone log-contrast slope 1.273  white(0.995) reached at 6.10 EV above 0.18
+GT7_SDR            0.18 -> lin 0.1794 (sRGB  117.5)  midtone log-contrast slope 1.037  white(0.995) reached at 3.05 EV above 0.18
+
+=== Hue drift over exposure sweep -3..+6 EV (only where output Oklab chroma > 0.02) ===
+color                     KFilmic_v1(1.0)    KFilmic_v2(1.1)        ACES(three)         AgX(three)         PBRNeutral            GT7_SDR
+cedar_green #5e8452       5.48°/ 11.86°rgb    1.17°/  0.00°rgb    7.90°/ 16.07°rgb    7.66°/ 15.70°rgb    1.41°/  0.00°rgb   30.05°/ 48.07°rgb
+broadleaf #4f7a3a        14.10°/ 26.70°rgb    1.64°/  0.00°rgb   12.10°/ 23.62°rgb   10.28°/ 20.69°rgb    1.42°/  0.00°rgb   29.51°/ 46.98°rgb
+sky_zenith #437ec2       56.69°/ 42.03°rgb   11.48°/  0.00°rgb   19.43°/ 19.13°rgb   16.75°/ 17.45°rgb   11.33°/  0.00°rgb   56.80°/ 42.03°rgb
+ocean_deep #0b2640       23.53°/ 18.16°rgb    8.80°/  0.00°rgb   21.43°/ 20.05°rgb   13.21°/ 14.40°rgb    6.32°/  0.00°rgb   45.53°/ 34.14°rgb
+shallow #1f6470          15.12°/ 12.88°rgb    5.04°/  0.00°rgb    8.40°/  8.57°rgb    5.37°/  6.41°rgb    4.15°/  0.00°rgb   15.79°/ 12.88°rgb
+kawara #5a5f66             nan°/   nan°rgb    0.26°/  0.00°rgb     nan°/   nan°rgb     nan°/   nan°rgb    0.34°/  0.00°rgb    0.52°/  0.52°rgb
+shikkui #e8e4da            nan°/   nan°rgb     nan°/   nan°rgb     nan°/   nan°rgb     nan°/   nan°rgb     nan°/   nan°rgb     nan°/   nan°rgb
+lamp_amber #ffb35c       38.72°/ 36.95°rgb   11.32°/  0.00°rgb   22.04°/ 21.40°rgb   11.11°/ 13.29°rgb   11.25°/  0.00°rgb   39.88°/ 37.57°rgb
+koban_red #ff2a1a        20.99°/ 18.59°rgb   11.25°/  0.00°rgb   51.95°/ 37.31°rgb   22.55°/ 19.57°rgb   11.23°/  0.00°rgb   77.20°/ 59.35°rgb
+sunset #ff8a3c           53.97°/ 45.72°rgb   13.40°/  0.00°rgb   40.66°/ 33.26°rgb   24.00°/ 21.21°rgb   13.44°/  0.00°rgb   56.33°/ 47.99°rgb
+sat_blue #2050ff         68.47°/ 56.58°rgb   17.28°/  0.00°rgb   12.97°/  4.05°rgb   21.38°/ 27.84°rgb   17.31°/  0.00°rgb   25.90°/ 29.84°rgb
+max Oklab-hue drift over all colors:
+   KFilmic_v1(1.0)    max  68.47°  mean  33.01°
+   KFilmic_v2(1.1)    max  17.28°  mean   8.16°
+   ACES(three)        max  51.95°  mean  21.87°
+   AgX(three)         max  24.00°  mean  14.70°
+   PBRNeutral         max  17.31°  mean   7.82°
+   GT7_SDR            max  77.20°  mean  37.75°
+
+=== Foliage saturation retention: Oklab chroma of output at +0/+1/+2/+3 EV (cedar green, sunlit) ===
+KFilmic_v1(1.0)    L0.39/C0.078  L0.55/C0.102  L0.71/C0.107  L0.85/C0.083
+KFilmic_v2(1.1)    L0.45/C0.068  L0.61/C0.091  L0.77/C0.115  L0.88/C0.117
+ACES(three)        L0.61/C0.101  L0.76/C0.090  L0.88/C0.059  L0.94/C0.032
+AgX(three)         L0.60/C0.066  L0.70/C0.062  L0.80/C0.054  L0.87/C0.042
+PBRNeutral         L0.53/C0.103  L0.69/C0.118  L0.88/C0.138  L0.92/C0.121
+GT7_SDR            L0.57/C0.089  L0.72/C0.108  L0.88/C0.122  L0.98/C0.053
+
+=== Bright saturated lights (+4 EV): output sRGB codes ===
+lamp_amber #ffb35c KFilmic_v1(1.0):[255 255 242] | KFilmic_v2(1.1):[255 253 252] | ACES(three):[255 253 246] | AgX(three):[255 247 234] | PBRNeutral:[255 235 221] | GT7_SDR:[255 255 255]
+koban_red #ff2a1a KFilmic_v1(1.0):[255 230 218] | KFilmic_v2(1.1):[255 240 240] | ACES(three):[255 236 207] | AgX(three):[255 224 209] | PBRNeutral:[255 217 217] | GT7_SDR:[255 255 225]
+sat_blue #2050ff KFilmic_v1(1.0):[187 240 255] | KFilmic_v2(1.1):[226 228 255] | ACES(three):[233 236 255] | AgX(three):[211 233 255] | PBRNeutral:[217 220 255] | GT7_SDR:[250 253 255]
+sky_zenith #437ec2 KFilmic_v1(1.0):[207 247 255] | KFilmic_v2(1.1):[234 241 255] | ACES(three):[240 248 254] | AgX(three):[220 239 252] | PBRNeutral:[200 219 254] | GT7_SDR:[255 255 255]

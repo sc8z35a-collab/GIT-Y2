@@ -329,14 +329,14 @@ export function installShadowFlameShaders(): void {
 \t\t\t\tvec3 sfGroundBounce = mix( vec3( 0.028, 0.032, 0.022 ), vec3( 0.044, 0.038, 0.026 ), sfCoastW );
 \t\t\t\tvec3 sfSkyBounce = mix( vec3( 0.048, 0.088, 0.142 ), vec3( 0.056, 0.105, 0.175 ), sfAlpineW );
 \t\t\t\tvec3 sfBounceTint = mix( sfGroundBounce, sfSkyBounce, sfUpFacing );
-\t\t\t\treflectedLight.indirectDiffuse += diffuseColor.rgb * RECIPROCAL_PI * sfBounceTint * ( 1.0 - sfVis ) * min( sfSunLum, 2.5 );
+\t\t\t\treflectedLight.indirectDiffuse += diffuseColor.rgb * RECIPROCAL_PI * sfBounceTint * ( 1.0 - sfVis ) * sfSunLum;
 
 \t\t\t\t// SF-Canopy SSS: 0.00°-hue-locked backlit forest leaf translucency (strictly proportional to diffuseColor.rgb!)
 \t\t\t\t#ifdef USE_SF_CANOPY_SSS
 \t\t\t\t{
 \t\t\t\t\tfloat sfBacklit = pow( clamp( dot( geometryViewDir, -directLight.direction ), 0.0, 1.0 ), 3.2 );
 \t\t\t\t\tfloat sfSssAmt = ( 0.12 + 0.88 * sfBacklit ) * ( 0.35 + 0.65 * sfVis );
-\t\t\t\t\treflectedLight.indirectDiffuse += diffuseColor.rgb * RECIPROCAL_PI * ( 0.24 * sfSssAmt ) * min( sfSunLum, 2.5 );
+\t\t\t\t\treflectedLight.indirectDiffuse += diffuseColor.rgb * RECIPROCAL_PI * ( 0.24 * sfSssAmt ) * sfSunLum;
 \t\t\t\t}
 \t\t\t\t#endif
 
@@ -377,13 +377,13 @@ export function installShadowFlameShaders(): void {
 \t\t\t\tfloat sfCoastWF = 1.0 - smoothstep( 2.0, 16.0, sfWorldPosF.y );
 \t\t\t\tvec3 sfGroundF = mix( vec3( 0.022, 0.026, 0.018 ), vec3( 0.036, 0.032, 0.022 ), sfCoastWF );
 \t\t\t\tvec3 sfBounceF = mix( sfGroundF, vec3( 0.042, 0.076, 0.120 ), sfSkyAmt );
-\t\t\t\treflectedLight.indirectDiffuse += diffuseColor.rgb * RECIPROCAL_PI * sfBounceF * ( 1.0 - sfFlashVis ) * min( sfSunLumF, 2.5 );
+\t\t\t\treflectedLight.indirectDiffuse += diffuseColor.rgb * RECIPROCAL_PI * sfBounceF * ( 1.0 - sfFlashVis ) * sfSunLumF;
 
 \t\t\t\t#ifdef USE_SF_CANOPY_SSS
 \t\t\t\t{
 \t\t\t\t\tfloat sfBackF = pow( clamp( dot( geometryViewDir, -directLight.direction ), 0.0, 1.0 ), 3.2 );
 \t\t\t\t\tfloat sfSssF = ( 0.10 + 0.90 * sfBackF ) * ( 0.35 + 0.65 * sfFlashVis );
-\t\t\t\t\treflectedLight.indirectDiffuse += diffuseColor.rgb * RECIPROCAL_PI * ( 0.20 * sfSssF ) * min( sfSunLumF, 2.5 );
+\t\t\t\t\treflectedLight.indirectDiffuse += diffuseColor.rgb * RECIPROCAL_PI * ( 0.20 * sfSssF ) * sfSunLumF;
 \t\t\t\t}
 \t\t\t\t#endif
 \t\t\t#endif

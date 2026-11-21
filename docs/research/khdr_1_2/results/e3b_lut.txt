@@ -1,0 +1,14 @@
+v3_hardclip  N=33 realistic-content: max  25.83  p99.9 15.78  p99  7.87  mean 0.680 | sky ramp max  4.80
+v3_hardclip  N=48 realistic-content: max  22.61  p99.9 10.25  p99  4.57  mean 0.345 | sky ramp max  2.42
+v3_hardclip  N=65 realistic-content: max  23.91  p99.9  7.47  p99  3.24  mean 0.210 | sky ramp max  1.22
+v3_softknee  N=33 realistic-content: max  23.89  p99.9 13.82  p99  6.95  mean 0.652 | sky ramp max  4.80
+v3_softknee  N=48 realistic-content: max  19.57  p99.9  8.81  p99  3.67  mean 0.328 | sky ramp max  2.55
+v3_softknee  N=65 realistic-content: max  13.21  p99.9  5.57  p99  2.40  mean 0.189 | sky ramp max  1.56
+soft-knee hue drift cedar: max 0.00 deg
+soft-knee hue drift koban: max 0.00 deg
+soft-knee hue drift sky: max 0.00 deg
+soft-knee hue drift blue: max 0.00 deg
+--- perceptual error (Delta E ITP, display white = 400 nits) ---
+v3_softknee N=33: dE_ITP mean 0.619  p99 5.052  p99.9 8.265  max 11.675  frac>1JND 11.47%
+v3_softknee N=48: dE_ITP mean 0.307  p99 2.629  p99.9 4.916  max 10.376  frac>1JND 4.23%
+v3_softknee N=65: dE_ITP mean 0.174  p99 1.524  p99.9 3.543  max 8.085  frac>1JND 2.00%
