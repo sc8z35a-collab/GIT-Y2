@@ -72,10 +72,11 @@ export class KHDRPipeline {
   private readonly hdrTexType: THREE.TextureDataType;
   /**
    * KHDR 1.2 creates the canvas without MSAA (its own HDR target is multisampled). When KHDR OFF is chosen at
-   * runtime on such a canvas, the scene goes through the MSAA HDR target and a copy pass in which three.js
-   * applies the same ACES tone mapping + sRGB encoding it would apply on the canvas — OFF keeps its edges.
+   * runtime on such a canvas, the scene goes through an MSAA target that three.js renders exactly like the canvas,
+   * followed by a raw copy — OFF keeps its look and its edges.
    */
   private readonly canvasMsaa: boolean;
+  private offTarget: THREE.WebGLRenderTarget | null = null;
   private offCopyMat: THREE.ShaderMaterial | null = null;
   private readonly sunWorldDir = new THREE.Vector3(0.54, 0.68, 0.49).normalize();
   private readonly tmpSunPoint = new THREE.Vector3();
@@ -977,13 +978,37 @@ export class KHDRPipeline {
     this.renderer.autoClear = prevAutoClear;
   }
 
-  /** KHDR OFF on a non-MSAA canvas: scene -> MSAA HDR target (linear), then ACES + sRGB in a copy pass. */
+  /**
+   * KHDR OFF on a non-MSAA canvas. The target must behave exactly like the canvas: some legacy materials (sky dome,
+   * ocean) write display values without three.js' tone-mapping / colour-space chunks, so tone mapping cannot simply
+   * be moved into the copy pass. three.js renders "like the screen" (renderer tone mapping, sRGB encoding in the
+   * shaders, sRGB clear colour) into targets flagged as XR targets; the explicit RGBA8 storage keeps the MSAA
+   * renderbuffer and the resolve texture identical (no hardware sRGB conversion), so the MSAA resolve happens in
+   * display space like the canvas' own, and the copy pass just moves the pixels.
+   */
   private renderOffThroughMsaaTarget(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
     const r = this.renderer;
+    if (!this.offTarget) {
+      this.offTarget = new THREE.WebGLRenderTarget(this.width, this.height, {
+        type: THREE.UnsignedByteType,
+        format: THREE.RGBAFormat,
+        colorSpace: THREE.SRGBColorSpace,
+        internalFormat: 'RGBA8',
+        minFilter: THREE.NearestFilter,
+        magFilter: THREE.NearestFilter,
+        depthBuffer: true,
+        stencilBuffer: false,
+        samples: this.msaaSamples,
+      });
+      (this.offTarget as unknown as { isXRRenderTarget: boolean }).isXRRenderTarget = true;
+    } else if (this.offTarget.width !== this.width || this.offTarget.height !== this.height) {
+      this.offTarget.setSize(this.width, this.height);
+    }
     if (!this.offCopyMat) {
       this.offCopyMat = new THREE.ShaderMaterial({
         depthTest: false,
         depthWrite: false,
+        toneMapped: false,
         uniforms: { tScene: { value: null } },
         vertexShader: `
           varying vec2 vUv;
@@ -992,23 +1017,21 @@ export class KHDRPipeline {
             gl_Position = vec4(position.xy, 0.0, 1.0);
           }
         `,
-        // three.js injects toneMapping() / linearToOutputTexel() for the canvas (toneMapped defaults to true)
+        // raw copy: the pixels are already tone-mapped and sRGB-encoded
         fragmentShader: `
           uniform sampler2D tScene;
           varying vec2 vUv;
           void main() {
             gl_FragColor = vec4(texture2D(tScene, vUv).rgb, 1.0);
-            #include <tonemapping_fragment>
-            #include <colorspace_fragment>
           }
         `,
       });
     }
     const prevAutoClear = r.autoClear;
     r.autoClear = true; // clear both targets first: no tile reloads on TBDR GPUs
-    r.setRenderTarget(this.hdrTarget);
+    r.setRenderTarget(this.offTarget);
     r.render(scene, camera);
-    this.offCopyMat.uniforms.tScene.value = this.hdrTarget.texture;
+    this.offCopyMat.uniforms.tScene.value = this.offTarget.texture;
     this.quadMesh.material = this.offCopyMat;
     r.setRenderTarget(null);
     r.render(this.quadScene, this.quadCam);
@@ -1017,6 +1040,7 @@ export class KHDRPipeline {
 
   public dispose(): void {
     this.offCopyMat?.dispose();
+    this.offTarget?.dispose();
     this.hdrTarget.depthTexture?.dispose();
     this.hdrTarget.dispose();
     this.depthFxHalf.dispose();

@@ -481,7 +481,11 @@ vec3 kFilmicV3(vec3 x) {
   float cmax = texture2D(uGamutLut, vec2((h + 3.14159265) / 6.28318531, clamp(lab.x, 0.0, 1.0))).r;
   float r = C / max(cmax, 1e-5);
   const float KNEE = 0.75;
-  float comp = r <= KNEE ? r : KNEE + (1.0 - KNEE) * tanh((r - KNEE) / (1.0 - KNEE));
+  // Soft knee toward the gamut boundary. r explodes where cmax -> 0 (Oklab L >= 1 at the edge of a lamp), and the
+  // built-in tanh evaluated as (e^2t - 1) / (e^2t + 1) then gives inf / inf = NaN -> black pixels. Use the
+  // overflow-safe form with a clamped argument (also safe if a driver evaluates it in FP16).
+  float tk = clamp((r - KNEE) / (1.0 - KNEE), 0.0, 9.0);
+  float comp = r <= KNEE ? r : KNEE + (1.0 - KNEE) * (1.0 - 2.0 / (exp(2.0 * tk) + 1.0));
   C = comp * cmax;
   vec3 outLin = oklabToLinear(vec3(lab.x, C * cos(h), C * sin(h)));
   if (uGamutP3 > 0.5) {
